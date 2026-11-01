@@ -1,5 +1,6 @@
-import { createRobotScene } from './robot.js?v=27';
+import { createRobotScene } from './robot.js?v=30';
 import { panels } from './content.js?v=5';
+import { createModalInteraction } from './modal-interaction.js?v=30';
 
 const $ = s => document.querySelector(s);
 const lab = $('#lab');
@@ -8,6 +9,7 @@ const dialog = $('#contentDialog');
 const tags = [...document.querySelectorAll('.orbit-tag')];
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let robot, soundOn = false, audio, activePanel = 0, typingToken = 0, lastTag;
+const modalInteraction = createModalInteraction({ dialog, panel: $('#panelShell'), scene: $('#scene'), getRobot: () => robot });
 
 function tone(freq = 420, duration = .07, volume = .025) {
   if (!soundOn) return;
@@ -47,6 +49,7 @@ async function typeOpening() {
 
 function showBoot() {
   if (dialog.open) dialog.close();
+  modalInteraction.close();
   document.body.classList.remove('modal-open');
   document.body.classList.add('booting');
   lab.inert = true;
@@ -85,6 +88,7 @@ function showPanel(id) {
   $('#panelContent').innerHTML = `<p class="panel-kicker">${p.kicker}</p><h2 id="panelTitle">${p.title}</h2><p class="panel-title-zh" lang="zh-CN">${p.titleZh}</p><p class="panel-intro">${p.intro}<small class="zh-copy" lang="zh-CN">${p.introZh}</small></p>${p.body}`;
   document.body.classList.add('modal-open'); lab.inert = true;
   if (!dialog.open) dialog.showModal();
+  modalInteraction.open();
   dialog.scrollTop = 0; $('#panelContent').scrollTop = 0;
   tone(540, .12);
   if (p.id === 'prototypes') {
@@ -108,18 +112,23 @@ function showPanel(id) {
   }
 }
 
-function closePanel() { if (dialog.open) dialog.close(); }
+function closePanel() { modalInteraction.close(); if (dialog.open) dialog.close(); }
 $('#closePanel').addEventListener('click', closePanel);
 $('#nextPanel').addEventListener('click', () => showPanel(panels[(activePanel + 1) % panels.length].id));
+dialog.addEventListener('cancel', () => modalInteraction.close());
 dialog.addEventListener('close', () => {
-  document.body.classList.remove('modal-open'); lab.inert = false;
+  if (dialog.open) return;
+  modalInteraction.close();
+  document.body.classList.remove('modal-open');
+  lab.inert = boot.open;
+  if (boot.open) return;
   robot?.resetAim();
   lastTag?.focus({ preventScroll: true });
   updateAim();
 });
 dialog.addEventListener('click', e => {
   if (e.target !== dialog) return;
-  const r = dialog.getBoundingClientRect();
+  const r = $('#panelShell').getBoundingClientRect();
   if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) closePanel();
 });
 

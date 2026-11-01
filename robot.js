@@ -1,6 +1,7 @@
 import * as THREE from './three.module.js';
 import { createTechnicalDrawing } from './robot-drawing.js?v=27';
 import { createMechanicalInternals } from './robot-internals.js?v=27';
+import { createModalRig } from './modal-rig.js?v=30';
 
 const ARM = { upper: 1.52, lower: 1.36, shoulderY: -0.58, tool: 0.96 };
 
@@ -442,12 +443,17 @@ export async function createRobotScene(canvas, options = {}) {
   let currentRadius = null, currentAzimuth = 0, currentHeight = 0, currentPhi = 0;
   const currentContact = new THREE.Vector3();
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const modalRig = createModalRig(THREE, {
+    camera, scene, renderer, arm, shoulder, elbow, wrist, upperLink, forearmLink,
+    shoulderTransmission, contactAnchor, reducedMotion,
+    getViewport: () => ({ width, height }),
+  });
 
   function resize() {
     const rect = canvas.getBoundingClientRect();
     width = Math.max(1, rect.width); height = Math.max(1, rect.height);
     camera.clearViewOffset();
-    const compact = (window.innerWidth || width) <= 700;
+    const compact = !modalRig.enabled && (window.innerWidth || width) <= 700;
     const virtualHeight = compact ? height * (0.43 / 0.78) : height;
     camera.aspect = width / virtualHeight;
     camera.position.set(3.65, 2.70, 10.8);
@@ -468,6 +474,22 @@ export async function createRobotScene(canvas, options = {}) {
   }
   function resetAim() { hovered = false; requestedScreen = null; requestedContact = null; targetYaw = -0.13; }
   function setActive(value) { active = Boolean(value); }
+  function setModalMode(value) {
+    modalRig.setMode(value);
+    if (!value) {
+      if (lastPose) {
+        arm.rotation.y = lastPose.yaw;
+        shoulder.rotation.z = lastPose.q1 - Math.PI / 2;
+        elbow.rotation.z = lastPose.q2; wrist.rotation.z = lastPose.wrist;
+        elbow.position.y = lastPose.l1; wrist.position.y = lastPose.l2;
+        upperLink.setLength(lastPose.l1); forearmLink.setLength(lastPose.l2);
+        shoulderTransmission.update();
+      }
+      resetAim();
+    }
+    resize();
+    if (value) modalRig.render();
+  }
 
   function idleContact(time, offset) {
     const yaw = -0.13 * 0.28;
@@ -485,8 +507,16 @@ export async function createRobotScene(canvas, options = {}) {
   function animate(now) {
     if (disposed) return;
     frameId = requestAnimationFrame(animate);
+    const modalDt = Math.max(0, (now - last) / 1000);
     const dt = Math.min((now - last) / 1000, 0.05); last = now;
     const time = now / 1000;
+    if (modalRig.enabled) {
+      fingers[0].rotation.z = -0.11; fingers[1].rotation.z = 0.11;
+      internalClaw.update();
+      modalRig.update(document.visibilityState === 'hidden' ? 0 : modalDt, measureContactOffset());
+      modalRig.render();
+      return;
+    }
     fingers[0].rotation.z = -0.11 + (hovered || reducedMotion ? 0 : Math.sin(time * 0.8) * 0.035);
     fingers[1].rotation.z = 0.11 - (hovered || reducedMotion ? 0 : Math.sin(time * 0.8) * 0.035);
     internalClaw.update();
@@ -527,6 +557,9 @@ export async function createRobotScene(canvas, options = {}) {
   animate(performance.now());
   return {
     aimAt, resetAim, setActive, resize,
+    setModalMode, aimAtModal: modalRig.aimAt, resetModalAim: modalRig.resetAim,
+    updateModalLayout: modalRig.updateLayout,
+    getModalState: modalRig.getState,
     getDiagnostics() {
       scene.updateMatrixWorld(true);
       const world = contactAnchor.getWorldPosition(new THREE.Vector3());

@@ -7,6 +7,8 @@ export const websiteFiles = [
   'app.js',
   'content.js',
   'robot.js',
+  'modal-rig.js',
+  'modal-interaction.js',
   'robot-drawing.js',
   'robot-internals.js',
   'three.module.js',
