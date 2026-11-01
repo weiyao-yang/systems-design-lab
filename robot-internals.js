@@ -201,6 +201,100 @@ export function createMechanicalInternals({ THREE, lineMaterial } = {}) {
     return batch(parent, d, 'chassis-drivetrain');
   }
 
+  function shoulderTransmission({ drive, arm }) {
+    // The yaw motor drives the existing slew ring from inside the chassis.
+    const base = drawing();
+    const ringCenter = [0, 0.94, -0.10];
+    base.cylinder(0.080, 0.24, [0.50, 0.70, -0.10], 'y', 6, 24);
+    for (const y of [0.58, 0.82]) base.circle(0.092, [0.50, y, -0.10], 'y', 24);
+    base.cylinder(0.026, 0.13, [0.50, 0.875, -0.10], 'y', 4, 20);
+    base.gear(0.102, 10, [0.50, 0.94, -0.10], 'y', 0.04);
+    base.gear(0.43, 40, ringCenter, 'y', 0.04);
+    // A hollow keyed hub carries load through the turntable, not its cover.
+    base.cylinder(0.105, 0.18, [0, 1.025, -0.10], 'y', 6, 28);
+    for (const y of [0.98, 1.07]) {
+      base.circle(0.17, [0, y, -0.10], 'y', 32);
+      base.circle(0.21, [0, y, -0.10], 'y', 32);
+    }
+    for (let i = 0; i < 8; i++) {
+      const a = i / 8 * tau;
+      const x = Math.cos(a) * 0.18, z = -0.10 + Math.sin(a) * 0.18;
+      base.circle(0.012, [x, 1.07, z], 'y', 8);
+      base.segment([x, 0.98, z], [x, 1.07, z]);
+    }
+    base.cylinder(0.040, 0.10, [0, 1.08, -0.10], 'y', 4, 24);
+    base.circle(0.054, [0, 1.13, -0.10], 'y', 24);
+    batch(drive, base, 'slew-input-transmission');
+
+    // These bearing supports yaw with the arm, but never pitch with its link.
+    const upper = drawing();
+    for (const side of [-1, 1]) {
+      const z = side * 0.30;
+      upper.circle(0.106, [0, 0, z], 'z', 32);
+      upper.circle(0.068, [0, 0, z], 'z', 28);
+      for (const x of [-0.105, 0.105]) {
+        upper.poly([[x, -0.45, side * 0.21], [x, -0.28, side * 0.27], [x * 0.76, -0.07, z]]);
+        upper.segment([x, -0.28, side * 0.27], [-x * 0.76, -0.07, z]);
+      }
+      upper.segment([-0.105, -0.45, side * 0.21], [0.105, -0.45, side * 0.21]);
+      upper.circle(0.012, [-0.082, -0.40, side * 0.24], 'z', 8);
+      upper.circle(0.012, [0.082, -0.40, side * 0.24], 'z', 8);
+    }
+    upper.cylinder(0.038, 0.325, [0, -0.1875, -0.10], 'y', 4, 24);
+    for (const y of [-0.35, -0.25]) {
+      upper.circle(0.060, [0, y, -0.10], 'y', 24);
+      upper.circle(0.079, [0, y, -0.10], 'y', 24);
+    }
+    // A matching pair of pitch cones turns the input through 90 degrees.
+    // Their apex is the shoulder axis at [0, 0, -0.10].
+    const bevel = (axis, largeCenter, smallCenter) => {
+      upper.circle(0.10, largeCenter, axis, 24);
+      upper.circle(0.025, smallCenter, axis, 24);
+      for (let i = 0; i < 12; i++) {
+        const a = i / 12 * tau;
+        for (const phase of [-0.045, 0.045]) {
+          const u = Math.cos(a + phase), v = Math.sin(a + phase);
+          upper.segment(upper.point(u * 0.10, v * 0.10, 0, axis, largeCenter), upper.point(u * 0.025, v * 0.025, 0, axis, smallCenter));
+        }
+      }
+    };
+    bevel('y', [0, -0.10, -0.10], [0, -0.025, -0.10]);
+    bevel('z', [0, 0, -0.20], [0, 0, -0.125]);
+    upper.cylinder(0.046, 0.56, [0, 0, 0], 'z', 4, 28);
+    for (const z of [-0.24, 0.22]) {
+      upper.circle(0.070, [0, 0, z], 'z', 24);
+      upper.circle(0.086, [0, 0, z], 'z', 24);
+    }
+    batch(arm, upper, 'shoulder-input-support');
+
+    // A short splined, articulated coupling bridges the small offset between
+    // the two original yaw axes. Only this new line object changes transform.
+    const coupling = drawing();
+    coupling.cylinder(0.030, 1, [0, 0.5, 0], 'y', 6, 20);
+    for (const y of [0, 0.08, 0.24, 0.76, 0.92, 1]) coupling.circle(y === 0 || y === 1 ? 0.047 : 0.038, [0, y, 0], 'y', 20);
+    const connector = batch(arm, coupling, 'articulated-slew-coupling');
+    const baseSocket = new THREE.Vector3(0, 1.13, -0.10);
+    const armSocket = new THREE.Vector3(0, -0.35, -0.10);
+    const from = new THREE.Vector3(), direction = new THREE.Vector3();
+    const up = new THREE.Vector3(0, 1, 0);
+    const api = {
+      update() {
+        drive.updateWorldMatrix(true, false);
+        arm.updateWorldMatrix(true, false);
+        from.copy(baseSocket);
+        drive.localToWorld(from);
+        arm.worldToLocal(from);
+        direction.copy(armSocket).sub(from);
+        const length = direction.length();
+        connector.position.copy(from);
+        connector.scale.set(1, length, 1);
+        connector.quaternion.setFromUnitVectors(up, direction.normalize());
+      },
+    };
+    api.update();
+    return api;
+  }
+
   function wheel(parent, side) {
     const d = drawing();
     d.cylinder(0.045, 0.34, [0, 0, 0], 'x', 4, 24);
@@ -246,7 +340,7 @@ export function createMechanicalInternals({ THREE, lineMaterial } = {}) {
   }
 
   return {
-    joint, link, chassis, wheel, claw,
+    joint, link, chassis, wheel, claw, shoulderTransmission,
     dispose() {
       geometries.forEach(geometry => geometry.dispose());
       geometries.clear();

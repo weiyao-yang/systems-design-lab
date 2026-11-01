@@ -1,6 +1,6 @@
 import * as THREE from './three.module.js';
 import { createTechnicalDrawing } from './robot-drawing.js?v=24';
-import { createMechanicalInternals } from './robot-internals.js?v=24';
+import { createMechanicalInternals } from './robot-internals.js?v=26';
 
 const ARM = { upper: 1.52, lower: 1.36, shoulderY: -0.58, tool: 0.96 };
 
@@ -315,6 +315,7 @@ export async function createRobotScene(canvas, options = {}) {
   mechanics.chassis(drive);
   const arm = new THREE.Group(); arm.position.set(0, -0.58, 0); scene.add(arm);
   const shoulder = new THREE.Group(); shoulder.userData.drawingRoot = true; arm.add(shoulder);
+  const shoulderTransmission = mechanics.shoulderTransmission({ drive, arm });
   const L1 = ARM.upper, L2 = ARM.lower;
   function joint(parent, radius, depth, mainMaterial = 'orange') {
     cyl(parent, radius, depth, 'navy');
@@ -507,6 +508,7 @@ export async function createRobotScene(canvas, options = {}) {
     wrist.rotation.z = pose.wrist;
     elbow.position.y = pose.l1; wrist.position.y = pose.l2;
     upperLink.setLength(pose.l1); forearmLink.setLength(pose.l2);
+    shoulderTransmission.update();
     materials.cyan.emissiveIntensity = active && !reducedMotion ? 1.4 + Math.sin(time * 1.7) * 0.18 : 1.2;
     renderer.render(scene, camera);
   }
