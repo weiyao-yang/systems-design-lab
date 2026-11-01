@@ -39,7 +39,9 @@ npm start
 | --- | --- |
 | 六个弹窗的文字与中英文内容 | `content.js` |
 | 颜色、字体、尺寸、位置、响应式外观 | `styles.css` |
-| 机械臂形状、材质、关节和运动 | `robot.js` |
+| 机械臂原始外形、关节和运动 | `robot.js` |
+| 蓝色外壳轮廓、隐藏线和透视线稿 | `robot-drawing.js` |
+| 橙色内部轴承、齿轮、电机和传动结构 | `robot-internals.js` |
 | 页面结构、标签、开屏布局 | `index.html` |
 | 打字、弹窗、音效、标签和按钮交互 | `app.js` |
 

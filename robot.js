@@ -1,4 +1,6 @@
 import * as THREE from './three.module.js';
+import { createTechnicalDrawing } from './robot-drawing.js?v=24';
+import { createMechanicalInternals } from './robot-internals.js?v=24';
 
 const ARM = { upper: 1.52, lower: 1.36, shoulderY: -0.58, tool: 0.96 };
 
@@ -66,7 +68,7 @@ export async function createRobotScene(canvas, options = {}) {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.23;
-  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.enabled = false;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
@@ -111,16 +113,24 @@ export async function createRobotScene(canvas, options = {}) {
   shadowPlane.rotation.x = -Math.PI / 2;
   shadowPlane.position.y = -1.98;
   shadowPlane.receiveShadow = true;
+  shadowPlane.visible = false;
   scene.add(shadowPlane);
 
   const allGeometries = new Set();
   const allTextures = [];
+  const drawingSurfaces = [];
+  const mechanismMaterial = new THREE.LineBasicMaterial({
+    color: 0xf27620, transparent: true, opacity: 0.88,
+    depthTest: false, depthWrite: false, toneMapped: false,
+  });
+  const mechanics = createMechanicalInternals({ THREE, lineMaterial: mechanismMaterial });
   function mesh(geometry, material, parent, x = 0, y = 0, z = 0) {
     allGeometries.add(geometry);
     const object = new THREE.Mesh(geometry, typeof material === 'string' ? materials[material] : material);
     object.position.set(x, y, z);
     object.castShadow = true;
     object.receiveShadow = true;
+    drawingSurfaces.push(object);
     parent.add(object);
     return object;
   }
@@ -180,7 +190,7 @@ export async function createRobotScene(canvas, options = {}) {
   }
 
   // Lifted, wide-track drive unit: off-road pickup proportions, no cabin.
-  const drive = new THREE.Group(); drive.scale.setScalar(0.65); drive.position.y = -1.746; scene.add(drive);
+  const drive = new THREE.Group(); drive.userData.drawingRoot = true; drive.scale.setScalar(0.65); drive.position.y = -1.746; scene.add(drive);
   box(drive, 1.64, 0.26, 2.05, 'navy', 0, 0.33, 0, 0.055);
   box(drive, 1.70, 0.26, 2.02, 'blue', 0, 0.58, 0, 0.055);
   box(drive, 1.64, 0.09, 1.88, 'orange', 0, 0.73, 0, 0.024);
@@ -250,7 +260,7 @@ export async function createRobotScene(canvas, options = {}) {
     box(drive, 0.30, 0.13, 0.27, 'orange', 0, wheelY + 0.03, end * 0.78, 0.03);
   }
   for (const side of [-1, 1]) for (const end of [-1, 1]) {
-    const wheel = new THREE.Group(); wheel.position.set(side * 1.16, wheelY, end * 0.78); drive.add(wheel); wheels.push(wheel);
+    const wheel = new THREE.Group(); wheel.userData.drawingRoot = true; wheel.position.set(side * 1.16, wheelY, end * 0.78); drive.add(wheel); wheels.push(wheel);
     cyl(wheel, 0.456, 0.38, 'rubber', 0, 0, 0, 'x');
     ring(wheel, 0.382, 0.073, 'rubber', side * 0.145, 0, 0, 'x');
     for (let i = 0; i < 24; i++) {
@@ -290,6 +300,7 @@ export async function createRobotScene(canvas, options = {}) {
       springPoints.push([side * 0.90 + Math.cos(a) * 0.075, 0.19 + t * 0.36, end * 0.78 + Math.sin(a) * 0.075]);
     }
     pipe(drive, springPoints, 0.014, 'orange');
+    mechanics.wheel(wheel, side);
   }
   // Exposed slew bearing beneath the circular shoulder roller.
   cyl(drive, 0.62, 0.10, 'navy', 0, 0.88, -0.10, 'y');
@@ -301,8 +312,9 @@ export async function createRobotScene(canvas, options = {}) {
     const tooth = mesh(new THREE.BoxGeometry(0.05, 0.055, 0.085), 'blueDark', drive, Math.sin(a) * 0.566, 0.90, -0.10 + Math.cos(a) * 0.566);
     tooth.rotation.y = a;
   }
+  mechanics.chassis(drive);
   const arm = new THREE.Group(); arm.position.set(0, -0.58, 0); scene.add(arm);
-  const shoulder = new THREE.Group(); arm.add(shoulder);
+  const shoulder = new THREE.Group(); shoulder.userData.drawingRoot = true; arm.add(shoulder);
   const L1 = ARM.upper, L2 = ARM.lower;
   function joint(parent, radius, depth, mainMaterial = 'orange') {
     cyl(parent, radius, depth, 'navy');
@@ -315,6 +327,7 @@ export async function createRobotScene(canvas, options = {}) {
     }
     bolts(parent, radius * 0.74, depth / 2 + 0.112, 8, radius * 0.065);
     cyl(parent, radius * 0.12, 0.04, 'cyan', 0, 0, depth / 2 + 0.18);
+    mechanics.joint(parent, radius, depth);
   }
   joint(shoulder, 0.40, 0.65, 'orange');
   function link(parent, length, wide, number, primary = 'blue', depthScale = 1.1) {
@@ -343,6 +356,8 @@ export async function createRobotScene(canvas, options = {}) {
     const rails = [-1, 1].map(side => cyl(holder, wide * 0.11, 1, 'lightMetal', side * wide * 0.24, 0, -0.015, 'y'));
     const core = box(holder, wide * 0.29, 1, 0.19 * depthScale, 'blueDark', 0, 0, -0.025, 0.017);
     const cuff = box(holder, wide * 0.78, 0.13, 0.36 * depthScale, 'orange', 0, length - 0.12, 0, 0.018);
+    for (const object of [...rails, core, cuff]) object.userData.drawingRoot = true;
+    const internalLink = mechanics.link(holder, length, wide, depthScale);
     return {
       setLength(actual) {
         const railLength = Math.max(0.04, actual - 0.16 - railRoot);
@@ -351,15 +366,16 @@ export async function createRobotScene(canvas, options = {}) {
           object.position.y = railRoot + railLength / 2;
         }
         cuff.position.y = actual - 0.16;
+        internalLink.setLength(actual);
       },
     };
   }
   const upperLink = link(shoulder, L1, 0.36, '01', 'blue', 0.90);
-  const elbow = new THREE.Group(); elbow.position.y = L1; shoulder.add(elbow);
+  const elbow = new THREE.Group(); elbow.userData.drawingRoot = true; elbow.position.y = L1; shoulder.add(elbow);
   joint(elbow, 0.32, 0.58, 'blue');
   ring(elbow, 0.263, 0.027, 'orange', 0, 0, 0.36);
   const forearmLink = link(elbow, L2, 0.56, '02', 'blue', 1.10);
-  const wrist = new THREE.Group(); wrist.position.y = L2; elbow.add(wrist);
+  const wrist = new THREE.Group(); wrist.userData.drawingRoot = true; wrist.position.y = L2; elbow.add(wrist);
   joint(wrist, 0.225, 0.42, 'orange');
   const claw = new THREE.Group(); claw.position.y = 0.08; wrist.add(claw);
   box(claw, 0.44, 0.30, 0.41, 'blueDark', 0, 0.22, 0, 0.037);
@@ -372,7 +388,7 @@ export async function createRobotScene(canvas, options = {}) {
   }
   const fingers = [], tipMarkers = [];
   for (const side of [-1, 1]) {
-    const finger = new THREE.Group(); finger.position.set(side * 0.22, 0.34, 0); claw.add(finger); fingers.push(finger);
+    const finger = new THREE.Group(); finger.userData.drawingRoot = true; finger.position.set(side * 0.22, 0.34, 0); claw.add(finger); fingers.push(finger);
     cyl(finger, 0.083, 0.25, 'metal', 0, 0, 0, 'z');
     cyl(finger, 0.045, 0.265, 'orange', 0, 0, 0, 'z', 8);
     const segment = box(finger, 0.12, 0.31, 0.20, 'orange', side * 0.038, 0.15, 0, 0.025);
@@ -384,6 +400,7 @@ export async function createRobotScene(canvas, options = {}) {
     const tipMarker = new THREE.Object3D(); tipMarker.position.set(0, 0.0475, 0.095); pad.add(tipMarker); tipMarkers.push(tipMarker);
     for (let i = 0; i < 3; i++) box(finger, 0.018, 0.012, 0.20, 'rubber', side * -0.035, 0.355 + i * 0.035, 0, 0.003);
   }
+  mechanics.claw(claw);
   // This explicit anchor is recomputed from the real pad surfaces, never from
   // a guessed wrist/tool length. It remains centered between the front tips.
   const contactAnchor = new THREE.Object3D(); contactAnchor.name = 'front-fingertip-contact'; claw.add(contactAnchor);
@@ -401,6 +418,12 @@ export async function createRobotScene(canvas, options = {}) {
   box(sensor, 0.20, 0.11, 0.10, 'navy', 0, 0, 0, 0.02);
   cyl(sensor, 0.033, 0.022, 'cyan', 0.037, 0, 0.066);
   cyl(sensor, 0.018, 0.023, 'orangeLed', -0.05, 0, 0.066);
+
+  scene.updateMatrixWorld(true);
+  const technicalDrawing = createTechnicalDrawing(THREE, drawingSurfaces, { color: 0x165fc9 });
+  scene.traverse(object => {
+    if (object.userData.drawingRole === 'mechanism') object.renderOrder = 20;
+  });
 
   let width = 0, height = 0, disposed = false, active = false, hovered = false;
   let frameId = 0, last = performance.now();
@@ -506,12 +529,16 @@ export async function createRobotScene(canvas, options = {}) {
         for (let i = 0; i < positions.count; i++) minimumArmY = Math.min(minimumArmY, vertex.fromBufferAttribute(positions, i).applyMatrix4(object.matrixWorld).y);
       });
       const targetPixel = requestedScreen ? { x: requestedScreen.x * width, y: requestedScreen.y * height } : null;
-      return { requestedScreen, targetPixel, contactWorld: world.toArray(), projectedContact: pixel, errorPixels: error, minimumArmY, pose: lastPose };
+      return { requestedScreen, targetPixel, contactWorld: world.toArray(), projectedContact: pixel, errorPixels: error, minimumArmY, pose: lastPose, drawing: technicalDrawing.stats, renderCalls: renderer.info.render.calls };
     },
     dispose() {
       disposed = true; cancelAnimationFrame(frameId); observer.disconnect();
+      technicalDrawing.dispose(); mechanics.dispose(); mechanismMaterial.dispose();
       allGeometries.forEach(g => g.dispose()); allTextures.forEach(t => t.dispose());
-      scene.traverse(o => { if (o.isMesh && o.material && !Object.values(materials).includes(o.material)) o.material.dispose(); });
+      technicalDrawing.replacedMaterials.forEach(material => {
+        if (!Object.values(materials).includes(material)) material.dispose();
+      });
+      shadowPlane.material.dispose();
       Object.values(materials).forEach(m => m.dispose());
       shadowPlane.geometry.dispose(); renderer.dispose();
     },

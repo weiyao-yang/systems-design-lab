@@ -7,6 +7,8 @@ export const websiteFiles = [
   'app.js',
   'content.js',
   'robot.js',
+  'robot-drawing.js',
+  'robot-internals.js',
   'three.module.js',
   'THREE-LICENSE.txt',
   '.nojekyll',
