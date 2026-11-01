@@ -30,7 +30,7 @@ async function typeOpening() {
   $('#typedEnglish').textContent = ''; $('#typedChinese').textContent = '';
   $('#bootLog').textContent = 'ESTABLISHING CONNECTION . . .'; setProgress(0);
   await sleep(reducedMotion ? 0 : 450);
-  const lines = [['#typedEnglish', 'systems design lab'], ['#typedChinese', '系统设计实验室']];
+  const lines = [['#typedEnglish', 'Systems Design Lab'], ['#typedChinese', '系统设计实验室']];
   let current = 0, total = 25;
   for (const [selector, line] of lines) {
     for (const c of line) {
@@ -59,7 +59,7 @@ function showBoot() {
 async function enterLab() {
   if (boot.classList.contains('closing')) return;
   ++typingToken;
-  $('#typedEnglish').textContent = 'systems design lab';
+  $('#typedEnglish').textContent = 'Systems Design Lab';
   $('#typedChinese').textContent = '系统设计实验室'; setProgress(100);
   tone(230, .18, .04); setTimeout(() => tone(620, .2), 100);
   boot.classList.add('closing');

@@ -7,7 +7,7 @@
   <meta name="description" content="Systems Design Lab 系统设计实验室 — 在系统、物体与交互之间，探索新的连接。蓝橙机械臂互动空间。">
   <title>Systems Design Lab · 系统设计实验室</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23263351'/%3E%3Cpath d='M32 10v44M10 32h44M16 16l32 32M48 16L16 48' stroke='%23ff783b' stroke-width='8'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="styles.css?v=7">
+  <link rel="stylesheet" href="styles.css?v=15">
 </head>
 <body class="booting">
   <main id="lab" class="lab">
@@ -33,12 +33,12 @@
   </main>
 
   <dialog id="bootDialog" class="boot-dialog" aria-labelledby="bootTitle">
-    <div class="boot-top"><span><i></i><i></i><i></i></span><b>SDL / INITIALIZATION</b><span>001</span></div>
-    <div class="boot-content"><div class="micro-label"><span class="tiny-cross">+</span> A NEW CONNECTION IS ABOUT TO BEGIN</div><h2 id="bootTitle"><span id="typedEnglish"></span><span class="typing-cursor">_</span></h2><p class="boot-chinese"><span id="typedChinese"></span></p><div class="boot-console"><span id="bootLog">ESTABLISHING CONNECTION . . .</span><span id="bootPercent">00%</span></div><div class="boot-progress"><i id="bootProgress"></i></div><div class="boot-action"><div class="arcade-bezel"><button id="enterButton" class="arcade-button" aria-label="Enter Systems Design Lab / 进入系统设计实验室"><span>⏻</span></button></div><div class="enter-copy"><b>PRESS TO EXPLORE <span>↗</span></b><span>按下按钮，开启实验</span><small>SYSTEM READY · CURIOSITY LOADED</small></div></div></div>
-    <div class="boot-bottom"><span>DESIGNED FOR THE CURIOUS.</span><span>SYSTEM ONLINE <i></i></span></div>
+    <div class="boot-top" aria-hidden="true"><span><i></i></span></div>
+    <div class="boot-content"><h2 id="bootTitle"><span id="typedEnglish"></span><span class="typing-cursor">_</span></h2><p class="boot-chinese"><span id="typedChinese"></span></p><div class="boot-console"><span id="bootLog">ESTABLISHING CONNECTION . . .</span><span id="bootPercent">00%</span></div><div class="boot-progress"><i id="bootProgress"></i></div><div class="boot-action"><div class="arcade-bezel"><button id="enterButton" class="arcade-button" aria-label="Enter Systems Design Lab / 进入系统设计实验室"><span>⏻</span></button></div><div class="enter-copy"><b>PRESS TO EXPLORE <span>↗</span></b><span>按下按钮，开启实验</span></div></div></div>
+    <div class="boot-bottom" aria-hidden="true"><span>&nbsp;</span></div>
   </dialog>
 
   <dialog id="contentDialog" class="content-dialog" aria-labelledby="panelTitle"><div class="panel-top"><span id="panelEyebrow"></span><button id="closePanel" class="close-panel" aria-label="Close panel / 关闭弹窗">✕<span>ESC</span></button></div><div id="panelContent" class="panel-content"></div><div class="panel-bottom"><span>SYSTEMS DESIGN LAB / EXPLORATION MODE</span><button id="nextPanel">NEXT CONNECTION <span>↗</span><small class="zh-copy">下一个连接</small></button></div></dialog>
-  <script type="module" src="app.js?v=7"></script>
+  <script type="module" src="app.js?v=13"></script>
 </body>
 </html>
