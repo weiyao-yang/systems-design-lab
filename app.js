@@ -1,6 +1,6 @@
-import { createRobotScene } from './robot.js?v=31';
+import { createRobotScene } from './robot.js?v=32';
 import { panels } from './content.js?v=5';
-import { createModalInteraction } from './modal-interaction.js?v=31';
+import { createModalInteraction } from './modal-interaction.js?v=32';
 
 const $ = s => document.querySelector(s);
 const lab = $('#lab');
@@ -113,8 +113,8 @@ function showPanel(id) {
 }
 
 function closePanel() { modalInteraction.close(); if (dialog.open) dialog.close(); }
-$('#closePanel').addEventListener('click', closePanel);
-$('#nextPanel').addEventListener('click', () => showPanel(panels[(activePanel + 1) % panels.length].id));
+$('#closePanel').addEventListener('click', event => modalInteraction.activate('close', closePanel, event));
+$('#nextPanel').addEventListener('click', event => modalInteraction.activate('next', () => showPanel(panels[(activePanel + 1) % panels.length].id), event));
 dialog.addEventListener('cancel', () => modalInteraction.close());
 dialog.addEventListener('close', () => {
   if (dialog.open) return;

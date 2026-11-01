@@ -1,7 +1,7 @@
 import * as THREE from './three.module.js';
 import { createTechnicalDrawing } from './robot-drawing.js?v=27';
 import { createMechanicalInternals } from './robot-internals.js?v=27';
-import { createModalRig } from './modal-rig.js?v=31';
+import { createModalRig } from './modal-rig.js?v=32';
 
 const ARM = { upper: 1.52, lower: 1.36, shoulderY: -0.58, tool: 0.96 };
 
@@ -504,6 +504,15 @@ export async function createRobotScene(canvas, options = {}) {
     return { point: new THREE.Vector3(x * Math.cos(yaw) + offset.z * Math.sin(yaw), y, -x * Math.sin(yaw) + offset.z * Math.cos(yaw)), phi };
   }
 
+  function completeModalAim(input) {
+    if (!modalRig.enabled) return false;
+    fingers[0].rotation.z = -0.11; fingers[1].rotation.z = 0.11;
+    internalClaw.update();
+    const completed = modalRig.completeAim(input, measureContactOffset());
+    modalRig.render();
+    return completed;
+  }
+
   function animate(now) {
     if (disposed) return;
     frameId = requestAnimationFrame(animate);
@@ -557,7 +566,7 @@ export async function createRobotScene(canvas, options = {}) {
   animate(performance.now());
   return {
     aimAt, resetAim, setActive, resize,
-    setModalMode, aimAtModal: modalRig.aimAt, resetModalAim: modalRig.resetAim,
+    setModalMode, aimAtModal: modalRig.aimAt, resetModalAim: modalRig.resetAim, completeModalAim,
     updateModalLayout: modalRig.updateLayout,
     getModalState: modalRig.getState,
     getDiagnostics() {

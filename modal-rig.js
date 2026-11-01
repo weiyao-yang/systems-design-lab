@@ -238,6 +238,17 @@ export function createModalRig(THREE, {
     if (pending?.kind === spec.kind) pending = spec;
   }
   function resetAim() { pending = null; wanted = false; retreat(); }
+  function completeAim(input, offset) {
+    const spec = specification(input);
+    if (!enabled || !spec) return false;
+    // On a very slow touch frame, present the exact contact pose before the
+    // button action instead of letting a timeout bypass its visual feedback.
+    enter(spec); fit(offset);
+    prepared = true; layer = 'foreground'; phase = 'hold';
+    edgeProgress = 1; reachProgress = 1; elapsed = 0; duration = 0;
+    applyPose(offset, 0, layout, layout.final); refreshBounds();
+    return Boolean(visibleBounds);
+  }
   function prepare(offset) {
     edgeProgress = 0; reachProgress = 0; layer = 'behind'; prepared = true;
     applyPose(offset, 0, layout, layout.tucked); refreshBounds();
@@ -318,5 +329,5 @@ export function createModalRig(THREE, {
       distalBounds: copy(distalBounds), proximalBounds: copy(proximalBounds), visibleBounds: copy(visibleBounds),
     };
   }
-  return { get enabled() { return enabled; }, setMode, aimAt, updateLayout, resetAim, update, render, getState };
+  return { get enabled() { return enabled; }, setMode, aimAt, updateLayout, resetAim, completeAim, update, render, getState };
 }
