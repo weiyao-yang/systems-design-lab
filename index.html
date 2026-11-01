@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#f5c9dc">
+  <meta name="description" content="Systems Design Lab 系统设计实验室 — 在系统、物体与交互之间，探索新的连接。蓝橙机械臂互动空间。">
+  <title>Systems Design Lab · 系统设计实验室</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23263351'/%3E%3Cpath d='M32 10v44M10 32h44M16 16l32 32M48 16L16 48' stroke='%23ff783b' stroke-width='8'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css?v=7">
+</head>
+<body class="booting">
+  <main id="lab" class="lab">
+    <header class="topbar">
+      <a class="wordmark" href="./" aria-label="系统设计实验室首页"><span class="brand-mark">✳</span><span>SYSTEMS<br>DESIGN LAB<span class="brand-cn">系统设计实验室</span></span></a>
+      <div class="topbar-right"><span class="edition">INDEPENDENT DESIGN EXPERIMENT<br><b>开放想象 · 持续探索</b></span><button id="soundToggle" class="sound-toggle" aria-label="Enable sound / 开启音效" aria-pressed="false"><span class="sound-bars"><i></i><i></i><i></i><i></i></span><span id="soundState">SOUND OFF</span></button></div>
+    </header>
+    <div class="hero-heading" aria-label="Systems Design Lab"><h1>SYSTEMS<span>DESIGN LAB<span class="title-star">✳</span></span></h1></div>
+    <div class="hero-caption"><span class="micro-label">HUMAN IDEAS. MECHANICAL CURIOSITY.</span><p>IDEAS, CONNECTED.<small class="zh-copy">让想法，产生连接。<br>在系统、物体与交互之间探索。</small></p></div>
+    <div class="scene" id="scene"><canvas id="robotCanvas" aria-label="蓝橙配色的轮式机械臂，悬停标签时向对应位置伸展" role="img"></canvas><div class="scene-fallback" hidden><span>✳</span><p>SDL—01<br>机械臂展示需要启用 WebGL</p></div></div>
+    <div class="floor-graphic" aria-hidden="true"><span>SDL—01</span><i></i><b>ROBOTIC EXPLORER</b></div>
+    <nav class="orbit-nav" aria-label="探索实验室">
+      <button class="orbit-tag left t1" data-panel="projects" data-side="left"><span class="tag-index">01</span><span class="tag-title">PROJECTS<small lang="zh-CN">实验项目</small></span><span class="tag-arrow">↗</span></button>
+      <button class="orbit-tag left t2" data-panel="systems" data-side="left"><span class="tag-index">02</span><span class="tag-title">SYSTEMS DESIGN<small lang="zh-CN">系统设计</small></span><span class="tag-arrow">↗</span></button>
+      <button class="orbit-tag left t3" data-panel="prototypes" data-side="left"><span class="tag-index">03</span><span class="tag-title">PROTOTYPES<small lang="zh-CN">交互原型</small></span><span class="tag-arrow">↗</span></button>
+      <button class="orbit-tag right t1" data-panel="about" data-side="right"><span class="tag-index">04</span><span class="tag-title">ABOUT THE LAB<small lang="zh-CN">关于实验室</small></span><span class="tag-arrow">↗</span></button>
+      <button class="orbit-tag right t2" data-panel="journal" data-side="right"><span class="tag-index">05</span><span class="tag-title">FIELD NOTES<small lang="zh-CN">实验日志</small></span><span class="tag-arrow">↗</span></button>
+      <button class="orbit-tag right t3" data-panel="contact" data-side="right"><span class="tag-index">06</span><span class="tag-title">LET'S CONNECT<small lang="zh-CN">联系与合作</small></span><span class="tag-arrow">↗</span></button>
+    </nav>
+    <div class="robot-id"><span class="status-dot"></span><b>SDL—01</b><span id="robotStatus">AWAITING CONNECTION</span><span class="id-line"></span><span>CURIOUS IN EVERY DIRECTION<small class="zh-copy">六轴好奇心 / 全向探索</small></span></div>
+    <footer class="footer"><span class="footer-note"><i></i><span>EXPERIMENT IN PROGRESS<small class="zh-copy">实验持续进行中</small></span><span class="footer-divider">/</span>EST. 2026</span><span class="interaction-hint"><span class="cursor-icon">↖</span> HOVER TO CONNECT<small class="zh-copy">移动至标签，探索连接</small></span><span class="footer-right">IMAGINE. CONNECT. CREATE.<span>© SYSTEMS DESIGN LAB</span></span></footer>
+    <button class="reboot" id="reboot" aria-label="Reboot introduction / 重新播放开屏">↻<span>REBOOT</span></button>
+  </main>
+
+  <dialog id="bootDialog" class="boot-dialog" aria-labelledby="bootTitle">
+    <div class="boot-top"><span><i></i><i></i><i></i></span><b>SDL / INITIALIZATION</b><span>001</span></div>
+    <div class="boot-content"><div class="micro-label"><span class="tiny-cross">+</span> A NEW CONNECTION IS ABOUT TO BEGIN</div><h2 id="bootTitle"><span id="typedEnglish"></span><span class="typing-cursor">_</span></h2><p class="boot-chinese"><span id="typedChinese"></span></p><div class="boot-console"><span id="bootLog">ESTABLISHING CONNECTION . . .</span><span id="bootPercent">00%</span></div><div class="boot-progress"><i id="bootProgress"></i></div><div class="boot-action"><div class="arcade-bezel"><button id="enterButton" class="arcade-button" aria-label="Enter Systems Design Lab / 进入系统设计实验室"><span>⏻</span></button></div><div class="enter-copy"><b>PRESS TO EXPLORE <span>↗</span></b><span>按下按钮，开启实验</span><small>SYSTEM READY · CURIOSITY LOADED</small></div></div></div>
+    <div class="boot-bottom"><span>DESIGNED FOR THE CURIOUS.</span><span>SYSTEM ONLINE <i></i></span></div>
+  </dialog>
+
+  <dialog id="contentDialog" class="content-dialog" aria-labelledby="panelTitle"><div class="panel-top"><span id="panelEyebrow"></span><button id="closePanel" class="close-panel" aria-label="Close panel / 关闭弹窗">✕<span>ESC</span></button></div><div id="panelContent" class="panel-content"></div><div class="panel-bottom"><span>SYSTEMS DESIGN LAB / EXPLORATION MODE</span><button id="nextPanel">NEXT CONNECTION <span>↗</span><small class="zh-copy">下一个连接</small></button></div></dialog>
+  <script type="module" src="app.js?v=7"></script>
+</body>
+</html>

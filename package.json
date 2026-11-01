@@ -1,0 +1,16 @@
+{
+  "name": "systems-design-lab",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Portable static Systems Design Lab website with an interactive robotic arm.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "dev": "node scripts/serve.mjs",
+    "check": "node scripts/check.mjs",
+    "build": "node scripts/build.mjs"
+  }
+}
