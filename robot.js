@@ -1,6 +1,6 @@
 import * as THREE from './three.module.js';
-import { createTechnicalDrawing } from './robot-drawing.js?v=24';
-import { createMechanicalInternals } from './robot-internals.js?v=26';
+import { createTechnicalDrawing } from './robot-drawing.js?v=27';
+import { createMechanicalInternals } from './robot-internals.js?v=27';
 
 const ARM = { upper: 1.52, lower: 1.36, shoulderY: -0.58, tool: 0.96 };
 
@@ -130,8 +130,16 @@ export async function createRobotScene(canvas, options = {}) {
     object.position.set(x, y, z);
     object.castShadow = true;
     object.receiveShadow = true;
+    object.userData.drawingRole = 'shell';
     drawingSurfaces.push(object);
     parent.add(object);
+    return object;
+  }
+  // Color follows component function: service and drivetrain hardware are
+  // internal even when exposed; housings and protective covers stay shell blue.
+  function internal(object, part) {
+    object.userData.drawingRole = 'internal';
+    object.userData.internalPart = part;
     return object;
   }
   function box(parent, w, h, d, mat, x = 0, y = 0, z = 0, bevel = 0.035) {
@@ -184,9 +192,9 @@ export async function createRobotScene(canvas, options = {}) {
     label.castShadow = false;
     return label;
   }
-  function pipe(parent, points, radius, material) {
+  function pipe(parent, points, radius, material, part = 'service-hose') {
     const curve = new THREE.CatmullRomCurve3(points.map(p => new THREE.Vector3(...p)));
-    return mesh(new THREE.TubeGeometry(curve, 32, radius, 7, false), material, parent);
+    return internal(mesh(new THREE.TubeGeometry(curve, 32, radius, 7, false), material, parent), part);
   }
 
   // Lifted, wide-track drive unit: off-road pickup proportions, no cabin.
@@ -199,8 +207,8 @@ export async function createRobotScene(canvas, options = {}) {
   box(drive, 0.84, 0.10, 0.63, 'blueDark', 0, 0.88, 0.48, 0.03);
   for (const s of [-1, 1]) {
     box(drive, 0.105, 0.028, 0.64, 'orange', s * 0.28, 0.948, 0.48, 0.007);
-    box(drive, 0.12, 0.055, 1.10, 'metal', s * 0.84, 0.32, 0, 0.012);
-    box(drive, 0.16, 0.04, 0.53, 'navy', s * 0.89, 0.40, 0, 0.012);
+    internal(box(drive, 0.12, 0.055, 1.10, 'metal', s * 0.84, 0.32, 0, 0.012), 'chassis-frame-rail');
+    internal(box(drive, 0.16, 0.04, 0.53, 'navy', s * 0.89, 0.40, 0, 0.012), 'chassis-frame-bracket');
   }
   // Wide recessed grille, square lamps, bull bar, orange recovery hooks.
   box(drive, 1.66, 0.33, 0.11, 'cream', 0, 0.57, 1.06, 0.027);
@@ -231,7 +239,7 @@ export async function createRobotScene(canvas, options = {}) {
     const object = cyl(parent, radius, direction.length(), material, 0, 0, 0, 'y');
     object.position.copy(a.add(b).multiplyScalar(0.5));
     object.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
-    return object;
+    return internal(object, 'suspension-link');
   }
   // A real open arch. Its inside radius clears the tire by 10 cm.
   function wheelArch(parent, inner, outer, width, material, x, y, z) {
@@ -255,9 +263,9 @@ export async function createRobotScene(canvas, options = {}) {
   const wheelY = 0.161;
   // Compact rugged chassis: scaled tread tips still meet the original ground.
   for (const end of [-1, 1]) {
-    cyl(drive, 0.073, 2.03, 'metal', 0, wheelY, end * 0.78, 'x');
-    cyl(drive, 0.15, 0.28, 'blueDark', 0, wheelY, end * 0.78, 'x', 12);
-    box(drive, 0.30, 0.13, 0.27, 'orange', 0, wheelY + 0.03, end * 0.78, 0.03);
+    internal(cyl(drive, 0.073, 2.03, 'metal', 0, wheelY, end * 0.78, 'x'), 'axle-shaft');
+    internal(cyl(drive, 0.15, 0.28, 'blueDark', 0, wheelY, end * 0.78, 'x', 12), 'axle-differential');
+    internal(box(drive, 0.30, 0.13, 0.27, 'orange', 0, wheelY + 0.03, end * 0.78, 0.03), 'axle-gearbox');
   }
   for (const side of [-1, 1]) for (const end of [-1, 1]) {
     const wheel = new THREE.Group(); wheel.userData.drawingRoot = true; wheel.position.set(side * 1.16, wheelY, end * 0.78); drive.add(wheel); wheels.push(wheel);
@@ -273,10 +281,10 @@ export async function createRobotScene(canvas, options = {}) {
       }
     }
     ring(wheel, 0.295, 0.038, 'navy', side * 0.207, 0, 0, 'x');
-    cyl(wheel, 0.274, 0.024, 'metal', side * 0.218, 0, 0, 'x');
+    internal(cyl(wheel, 0.274, 0.024, 'metal', side * 0.218, 0, 0, 'x'), 'wheel-brake-disc');
     cyl(wheel, 0.232, 0.035, 'blue', side * 0.234, 0, 0, 'x');
-    cyl(wheel, 0.110, 0.061, 'orange', side * 0.263, 0, 0, 'x');
-    cyl(wheel, 0.042, 0.065, 'lightMetal', side * 0.291, 0, 0, 'x', 6);
+    internal(cyl(wheel, 0.110, 0.061, 'orange', side * 0.263, 0, 0, 'x'), 'wheel-drive-hub');
+    internal(cyl(wheel, 0.042, 0.065, 'lightMetal', side * 0.291, 0, 0, 'x', 6), 'wheel-axle-locknut');
     for (let i = 0; i < 8; i++) {
       const a = i / 8 * Math.PI * 2;
       cyl(wheel, 0.017, 0.022, 'lightMetal', side * 0.264, Math.cos(a) * 0.175, Math.sin(a) * 0.175, 'x', 6);
@@ -293,24 +301,25 @@ export async function createRobotScene(canvas, options = {}) {
     // Exposed coil-over and diagonal control arms inside the lifted arch.
     rodBetween(drive, [side * 0.61, 0.44, end * 0.64], [side * 0.98, wheelY, end * 0.78], 0.052, 'blueDark');
     rodBetween(drive, [side * 0.65, 0.35, end * 0.90], [side * 1.00, wheelY, end * 0.78], 0.041, 'metal');
-    cyl(drive, 0.035, 0.42, 'lightMetal', side * 0.90, 0.35, end * 0.78, 'y');
+    internal(cyl(drive, 0.035, 0.42, 'lightMetal', side * 0.90, 0.35, end * 0.78, 'y'), 'suspension-damper-rod');
     const springPoints = [];
     for (let i = 0; i <= 100; i++) {
       const t = i / 100, a = t * Math.PI * 12;
       springPoints.push([side * 0.90 + Math.cos(a) * 0.075, 0.19 + t * 0.36, end * 0.78 + Math.sin(a) * 0.075]);
     }
-    pipe(drive, springPoints, 0.014, 'orange');
+    pipe(drive, springPoints, 0.014, 'orange', 'suspension-spring');
     mechanics.wheel(wheel, side);
   }
   // Exposed slew bearing beneath the circular shoulder roller.
   cyl(drive, 0.62, 0.10, 'navy', 0, 0.88, -0.10, 'y');
-  cyl(drive, 0.54, 0.13, 'orange', 0, 0.98, -0.10, 'y');
+  internal(cyl(drive, 0.54, 0.13, 'orange', 0, 0.98, -0.10, 'y'), 'slew-bearing-rotor');
   cyl(drive, 0.47, 0.075, 'metal', 0, 1.065, -0.10, 'y');
-  ring(drive, 0.535, 0.026, 'lightMetal', 0, 1.03, -0.10, 'y');
+  internal(ring(drive, 0.535, 0.026, 'lightMetal', 0, 1.03, -0.10, 'y'), 'slew-bearing-race');
   for (let i = 0; i < 20; i++) {
     const a = i / 20 * Math.PI * 2;
     const tooth = mesh(new THREE.BoxGeometry(0.05, 0.055, 0.085), 'blueDark', drive, Math.sin(a) * 0.566, 0.90, -0.10 + Math.cos(a) * 0.566);
     tooth.rotation.y = a;
+    internal(tooth, 'slew-ring-tooth');
   }
   mechanics.chassis(drive);
   const arm = new THREE.Group(); arm.position.set(0, -0.58, 0); scene.add(arm);
@@ -319,12 +328,12 @@ export async function createRobotScene(canvas, options = {}) {
   const L1 = ARM.upper, L2 = ARM.lower;
   function joint(parent, radius, depth, mainMaterial = 'orange') {
     cyl(parent, radius, depth, 'navy');
-    cyl(parent, radius * 0.88, depth + 0.055, 'metal');
+    internal(cyl(parent, radius * 0.88, depth + 0.055, 'metal'), 'joint-rotor');
     for (const side of [-1, 1]) {
       cyl(parent, radius * 0.91, 0.085, mainMaterial, 0, 0, side * (depth / 2 + 0.06));
       ring(parent, radius * 0.72, 0.023, 'blueDark', 0, 0, side * (depth / 2 + 0.11));
       cyl(parent, radius * 0.56, 0.045, 'cream', 0, 0, side * (depth / 2 + 0.11));
-      cyl(parent, radius * 0.30, 0.061, 'blueDark', 0, 0, side * (depth / 2 + 0.13));
+      internal(cyl(parent, radius * 0.30, 0.061, 'blueDark', 0, 0, side * (depth / 2 + 0.13)), 'joint-output-hub');
     }
     bolts(parent, radius * 0.74, depth / 2 + 0.112, 8, radius * 0.065);
     cyl(parent, radius * 0.12, 0.04, 'cyan', 0, 0, depth / 2 + 0.18);
@@ -335,7 +344,7 @@ export async function createRobotScene(canvas, options = {}) {
     // Width grows independently of link length, so the IK stays exact.
     const holder = parent;
     const armor = new THREE.Group(); parent.add(armor); armor.scale.z = depthScale; parent = armor;
-    box(parent, wide * 0.53, length - 0.22, 0.32, 'navy', 0, length / 2, 0, 0.05);
+    internal(box(parent, wide * 0.53, length - 0.22, 0.32, 'navy', 0, length / 2, 0, 0.05), 'link-inner-spine');
     box(parent, wide, length - 0.34, 0.43, primary, 0, length / 2, 0.015, 0.048);
     box(parent, wide * 0.65, length - 0.47, 0.043, 'blueLight', -wide * 0.065, length / 2 + 0.01, 0.259, 0.014);
     box(parent, wide * 0.36, length * 0.52, 0.043, 'cream', wide * 0.08, length / 2 + 0.13, 0.29, 0.016);
@@ -347,15 +356,15 @@ export async function createRobotScene(canvas, options = {}) {
     }
     textPlate(parent, number, wide * 0.42, 0.17, wide * 0.08, length * 0.63, 0.32);
     // Exposed hydraulic ram along the side of each arm link.
-    cyl(parent, 0.065, length * 0.56, 'navy', wide * 0.54, length * 0.40, -0.05, 'y');
-    cyl(parent, 0.038, length * 0.43, 'lightMetal', wide * 0.54, length * 0.74, -0.05, 'y');
-    for (const y of [length * 0.16, length * 0.65]) ring(parent, 0.068, 0.016, 'orange', wide * 0.54, y, -0.05, 'y');
+    internal(cyl(parent, 0.065, length * 0.56, 'navy', wide * 0.54, length * 0.40, -0.05, 'y'), 'linear-actuator-cylinder');
+    internal(cyl(parent, 0.038, length * 0.43, 'lightMetal', wide * 0.54, length * 0.74, -0.05, 'y'), 'linear-actuator-piston');
+    for (const y of [length * 0.16, length * 0.65]) internal(ring(parent, 0.068, 0.016, 'orange', wide * 0.54, y, -0.05, 'y'), 'linear-actuator-gland');
     pipe(parent, [[-wide * 0.32, 0.12, -0.25], [-wide * 0.64, length * 0.3, -0.3], [-wide * 0.62, length * 0.7, -0.3], [-wide * 0.25, length - 0.10, -0.22]], 0.034, 'navy');
     pipe(parent, [[-wide * 0.4, 0.18, -0.28], [-wide * 0.77, length * 0.35, -0.30], [-wide * 0.70, length * 0.66, -0.30], [-wide * 0.29, length - 0.15, -0.23]], 0.019, 'orange');
     // Fixed armor sleeves expose polished telescoping rails during a reach.
     const railRoot = length - 0.43;
-    const rails = [-1, 1].map(side => cyl(holder, wide * 0.11, 1, 'lightMetal', side * wide * 0.24, 0, -0.015, 'y'));
-    const core = box(holder, wide * 0.29, 1, 0.19 * depthScale, 'blueDark', 0, 0, -0.025, 0.017);
+    const rails = [-1, 1].map(side => internal(cyl(holder, wide * 0.11, 1, 'lightMetal', side * wide * 0.24, 0, -0.015, 'y'), 'telescoping-guide-rail'));
+    const core = internal(box(holder, wide * 0.29, 1, 0.19 * depthScale, 'blueDark', 0, 0, -0.025, 0.017), 'telescoping-core');
     const cuff = box(holder, wide * 0.78, 0.13, 0.36 * depthScale, 'orange', 0, length - 0.12, 0, 0.018);
     for (const object of [...rails, core, cuff]) object.userData.drawingRoot = true;
     const internalLink = mechanics.link(holder, length, wide, depthScale);
@@ -374,7 +383,7 @@ export async function createRobotScene(canvas, options = {}) {
   const upperLink = link(shoulder, L1, 0.36, '01', 'blue', 0.90);
   const elbow = new THREE.Group(); elbow.userData.drawingRoot = true; elbow.position.y = L1; shoulder.add(elbow);
   joint(elbow, 0.32, 0.58, 'blue');
-  ring(elbow, 0.263, 0.027, 'orange', 0, 0, 0.36);
+  internal(ring(elbow, 0.263, 0.027, 'orange', 0, 0, 0.36), 'elbow-bearing-race');
   const forearmLink = link(elbow, L2, 0.56, '02', 'blue', 1.10);
   const wrist = new THREE.Group(); wrist.userData.drawingRoot = true; wrist.position.y = L2; elbow.add(wrist);
   joint(wrist, 0.225, 0.42, 'orange');
@@ -391,7 +400,7 @@ export async function createRobotScene(canvas, options = {}) {
   for (const side of [-1, 1]) {
     const finger = new THREE.Group(); finger.userData.drawingRoot = true; finger.position.set(side * 0.22, 0.34, 0); claw.add(finger); fingers.push(finger);
     cyl(finger, 0.083, 0.25, 'metal', 0, 0, 0, 'z');
-    cyl(finger, 0.045, 0.265, 'orange', 0, 0, 0, 'z', 8);
+    internal(cyl(finger, 0.045, 0.265, 'orange', 0, 0, 0, 'z', 8), 'gripper-pivot-shaft');
     const segment = box(finger, 0.12, 0.31, 0.20, 'orange', side * 0.038, 0.15, 0, 0.025);
     segment.rotation.z = side * -0.20;
     const tip = box(finger, 0.105, 0.21, 0.17, 'navy', side * 0.028, 0.36, 0, 0.018);
@@ -401,7 +410,7 @@ export async function createRobotScene(canvas, options = {}) {
     const tipMarker = new THREE.Object3D(); tipMarker.position.set(0, 0.0475, 0.095); pad.add(tipMarker); tipMarkers.push(tipMarker);
     for (let i = 0; i < 3; i++) box(finger, 0.018, 0.012, 0.20, 'rubber', side * -0.035, 0.355 + i * 0.035, 0, 0.003);
   }
-  mechanics.claw(claw);
+  const internalClaw = mechanics.claw(claw, fingers);
   // This explicit anchor is recomputed from the real pad surfaces, never from
   // a guessed wrist/tool length. It remains centered between the front tips.
   const contactAnchor = new THREE.Object3D(); contactAnchor.name = 'front-fingertip-contact'; claw.add(contactAnchor);
@@ -480,6 +489,7 @@ export async function createRobotScene(canvas, options = {}) {
     const time = now / 1000;
     fingers[0].rotation.z = -0.11 + (hovered || reducedMotion ? 0 : Math.sin(time * 0.8) * 0.035);
     fingers[1].rotation.z = 0.11 - (hovered || reducedMotion ? 0 : Math.sin(time * 0.8) * 0.035);
+    internalClaw.update();
     const offset = measureContactOffset();
     const idle = idleContact(time, offset);
     const goal = hovered && requestedContact ? requestedContact : idle.point;

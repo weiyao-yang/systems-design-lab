@@ -1,4 +1,5 @@
 // Camera-facing contours and mechanical creases, without triangulation lines.
+// Protective shells use blue ink; functional internals use orange ink.
 // Batches stay under the nearest articulated drawing root so the existing
 // joints, wheels and telescoping parts continue to own every transform.
 export function createTechnicalDrawing(THREE, surfaces, options = {}) {
@@ -16,6 +17,8 @@ export function createTechnicalDrawing(THREE, surfaces, options = {}) {
     boundaryEdges: 0, sharpEdges: 0, silhouetteEdges: 0,
     cachedGeometries: 0, sourceTriangles: 0,
     lineDrawCalls: 0, depthDrawCalls: sourceMeshes.length, drawCalls: 0,
+    shellSurfaces: 0, internalSurfaces: 0, shellLineDrawCalls: 0, internalLineDrawCalls: 0,
+    internalParts: {},
   };
 
   function drawingOwner(object) {
@@ -123,14 +126,15 @@ export function createTechnicalDrawing(THREE, surfaces, options = {}) {
       #include <colorspace_fragment>
     }
   `;
-  function inkMaterial(opacity, depthTest) {
+  function inkMaterial(opacity, depthTest, color = options.color ?? 0x165fc9) {
     return new THREE.ShaderMaterial({
-      uniforms: { inkColor: { value: new THREE.Color(options.color ?? 0x165fc9) }, inkOpacity: { value: opacity } },
+      uniforms: { inkColor: { value: new THREE.Color(color) }, inkOpacity: { value: opacity } },
       vertexShader, fragmentShader, transparent: true, depthTest, depthWrite: false, toneMapped: false,
     });
   }
   const ghostMaterial = inkMaterial(options.ghostOpacity ?? 0.10, false);
   const primaryMaterial = inkMaterial(options.opacity ?? 0.95, true);
+  const internalMaterial = inkMaterial(options.internalOpacity ?? 0.88, false, options.internalColor ?? 0xf27620);
   const inverseOwner = new THREE.Matrix4(), relativeMatrix = new THREE.Matrix4(), normalsMatrix = new THREE.Matrix3();
   const pointA = new THREE.Vector3(), pointB = new THREE.Vector3(), normalA = new THREE.Vector3(), normalB = new THREE.Vector3(), midpoint = new THREE.Vector3();
 
@@ -141,10 +145,19 @@ export function createTechnicalDrawing(THREE, surfaces, options = {}) {
     inverseOwner.copy(owner.matrixWorld).invert(); relativeMatrix.multiplyMatrices(inverseOwner, object.matrixWorld);
     normalsMatrix.getNormalMatrix(relativeMatrix);
     const edges = geometryEdges(object.geometry);
-    let batch = batches.get(owner);
+    // Classify by function, never by the original filled material color.
+    const role = object.userData.drawingRole === 'internal' ? 'internal' : 'shell';
+    if (role === 'internal') {
+      stats.internalSurfaces++;
+      const part = object.userData.internalPart || 'internal-mechanism';
+      stats.internalParts[part] = (stats.internalParts[part] || 0) + 1;
+    } else stats.shellSurfaces++;
+    let ownerBatches = batches.get(owner);
+    if (!ownerBatches) { ownerBatches = new Map(); batches.set(owner, ownerBatches); }
+    let batch = ownerBatches.get(role);
     if (!batch) {
       batch = { positions: [], normalA: [], normalB: [], midpoints: [], forced: [] };
-      batches.set(owner, batch);
+      ownerBatches.set(role, batch);
     }
     for (let i = 0; i < edges.forced.length; i++) {
       pointA.fromArray(edges.positions, i * 6).applyMatrix4(relativeMatrix);
@@ -164,7 +177,7 @@ export function createTechnicalDrawing(THREE, surfaces, options = {}) {
     object.material = depthMaterial; object.castShadow = false;
   }
 
-  for (const [owner, batch] of batches) {
+  for (const [owner, ownerBatches] of batches) for (const [role, batch] of ownerBatches) {
     if (!batch.forced.length) continue;
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(batch.positions, 3));
@@ -173,13 +186,19 @@ export function createTechnicalDrawing(THREE, surfaces, options = {}) {
     geometry.setAttribute('edgeMidpoint', new THREE.Float32BufferAttribute(batch.midpoints, 3));
     geometry.setAttribute('forceVisible', new THREE.Float32BufferAttribute(batch.forced, 1));
     geometry.computeBoundingSphere(); ownedGeometries.add(geometry);
-    for (const [name, material, order] of [['ghost', ghostMaterial, 10], ['primary', primaryMaterial, 30]]) {
+    const passes = role === 'internal'
+      ? [['internal', internalMaterial, 20]]
+      : [['ghost', ghostMaterial, 10], ['primary', primaryMaterial, 30]];
+    for (const [name, material, order] of passes) {
       const lines = new THREE.LineSegments(geometry, material);
       lines.name = `technical-drawing-${name}`; lines.renderOrder = order; lines.castShadow = false;
-      lines.userData.technicalDrawing = true; owner.add(lines); lineObjects.push(lines);
+      lines.userData.technicalDrawing = true;
+      lines.userData.drawingRole = role;
+      owner.add(lines); lineObjects.push(lines);
+      if (role === 'internal') stats.internalLineDrawCalls++; else stats.shellLineDrawCalls++;
     }
-    stats.roots++;
   }
+  stats.roots = batches.size;
   stats.lineDrawCalls = lineObjects.length;
   stats.drawCalls = stats.depthDrawCalls + stats.lineDrawCalls;
   let disposed = false;
@@ -189,7 +208,7 @@ export function createTechnicalDrawing(THREE, surfaces, options = {}) {
       if (disposed) return; disposed = true;
       for (const lines of lineObjects) lines.removeFromParent();
       ownedGeometries.forEach(geometry => geometry.dispose());
-      depthMaterial.dispose(); ghostMaterial.dispose(); primaryMaterial.dispose();
+      depthMaterial.dispose(); ghostMaterial.dispose(); primaryMaterial.dispose(); internalMaterial.dispose();
     },
   };
 }

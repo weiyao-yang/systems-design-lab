@@ -1,4 +1,4 @@
-import { createRobotScene } from './robot.js?v=26';
+import { createRobotScene } from './robot.js?v=27';
 import { panels } from './content.js?v=5';
 
 const $ = s => document.querySelector(s);
