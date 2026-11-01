@@ -13,7 +13,8 @@ export function createModalRig(THREE, {
     ? { emerge: .025, reach: .045, withdraw: .035, tuck: .025 }
     : { emerge: .08, reach: .16, withdraw: .10, tuck: .07 };
   const fittedLayouts = new Map();
-  const homeScale = arm.scale.clone(), raycaster = new THREE.Raycaster(), plane = new THREE.Plane();
+  const homeScale = arm.scale.clone(), homePosition = arm.position.clone();
+  const raycaster = new THREE.Raycaster(), plane = new THREE.Plane();
   const normal = new THREE.Vector3(), origin = new THREE.Vector3(), hit = new THREE.Vector3();
   const world = new THREE.Vector3(), projected = new THREE.Vector3(), inverseArm = new THREE.Matrix4();
   const oldScissor = new THREE.Vector4(), cornerCache = new WeakMap();
@@ -137,8 +138,13 @@ export function createModalRig(THREE, {
   }
   function fit(offset) {
     const { width, height } = viewport(), gutter = Math.max(10, width - active.panel.right);
+    // Low homepage labels bring the extended tool toward the camera. Give
+    // NEXT that same substantial foreground presence, keeping its real scale
+    // and the close/home placements intact. Change depth only while hidden.
+    arm.position.copy(homePosition);
+    if (active.kind === 'next') arm.position.lerp(camera.position, 1 - 1 / 2.2);
     const projection = camera.projectionMatrix.elements;
-    const key = [width, height, projection[0], projection[5], projection[8], projection[9], ...Object.values(active.panel), active.target.x, active.target.y, offset.x, offset.y, offset.z].map(n => String(Number(n.toFixed(5)))).join(',');
+    const key = [width, height, projection[0], projection[5], projection[8], projection[9], ...arm.position.toArray(), ...Object.values(active.panel), active.target.x, active.target.y, offset.x, offset.y, offset.z].map(n => String(Number(n.toFixed(5)))).join(',');
     if (key === fitKey && layout) return false;
     if (fittedLayouts.has(key)) {
       layout = fittedLayouts.get(key); fitKey = key;
@@ -148,7 +154,7 @@ export function createModalRig(THREE, {
     const fitted = {
       scale: homeScale.x,
       elbow: {
-        x: active.panel.right + gutter * .60,
+        x: active.kind === 'next' ? active.panel.right - Math.min(14, gutter * .3) : active.panel.right + gutter * .60,
         y: clamp(active.target.y + (active.kind === 'close' ? 1 : -1) * Math.max(50, 1.8 * unitPixels), 12, height - 12),
       },
     };
@@ -212,6 +218,7 @@ export function createModalRig(THREE, {
       active = null; pending = null; wanted = false; prepared = false; phase = 'hidden'; layer = 'behind';
       contactPixel = null; errorPixels = null; distalBounds = null; proximalBounds = null; visibleBounds = null;
       arm.scale.copy(homeScale);
+      arm.position.copy(homePosition);
     }
   }
   function retreat() {

@@ -1,4 +1,4 @@
-import { createRobotScene } from './robot.js?v=35';
+import { createRobotScene } from './robot.js?v=36';
 import { panels } from './content.js?v=5';
 import { createModalInteraction } from './modal-interaction.js?v=32';
 
@@ -191,7 +191,7 @@ export function createHomeTagInteraction({ root, tags, canInteract, getRobot, up
     touch = { tag, pointerId: event.pointerId, x: event.clientX, y: event.clientY, started: performance.now() };
     tag.classList.add('is-touch-target');
     updateAim();
-    getRobot()?.beginTouchReach?.({ duration: reducedMotion ? .08 : .38 });
+    getRobot()?.beginTouchReach?.({ duration: reducedMotion ? .08 : .48 });
   }
   function activate(tag, event) {
     if (!canInteract()) return;
@@ -216,13 +216,13 @@ export function createHomeTagInteraction({ root, tags, canInteract, getRobot, up
       const arrived = state?.progress === 1 && state.errorPixels < 1;
       if (arrived) {
         settledAt ??= performance.now();
-        if (performance.now() - settledAt >= 60) { finish(); return; }
+        if (performance.now() - settledAt >= (reducedMotion ? 60 : 80)) { finish(); return; }
       } else settledAt = null;
       actionFrame = requestAnimationFrame(waitForContact);
     }
     actionFrame = requestAnimationFrame(waitForContact);
     // Slow frames still present exact contact, then a brief pause, before open.
-    const remaining = Math.max(0, (reducedMotion ? 180 : 650) - (performance.now() - touch.started));
+    const remaining = Math.max(0, (reducedMotion ? 180 : 800) - (performance.now() - touch.started));
     actionTimer = setTimeout(() => {
       if (activation !== queued || !canInteract()) { cancel(); return; }
       updateAim();
@@ -230,7 +230,7 @@ export function createHomeTagInteraction({ root, tags, canInteract, getRobot, up
       try { completed = getRobot()?.completeHomeAim?.(); } catch {}
       if (completed) {
         settledAt = performance.now();
-        actionTimer = setTimeout(finish, 60);
+        actionTimer = setTimeout(finish, reducedMotion ? 60 : 80);
       } else finish();
     }, remaining);
   }

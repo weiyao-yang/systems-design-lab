@@ -1,7 +1,7 @@
 import * as THREE from './three.module.js';
 import { createTechnicalDrawing } from './robot-drawing.js?v=27';
 import { createMechanicalInternals } from './robot-internals.js?v=27';
-import { createModalRig } from './modal-rig.js?v=33';
+import { createModalRig } from './modal-rig.js?v=36';
 
 const ARM = { upper: 1.52, lower: 1.36, shoulderY: -0.58, tool: 0.96 };
 
@@ -494,7 +494,7 @@ export async function createRobotScene(canvas, options = {}) {
     targetYaw = THREE.MathUtils.clamp((nx - 0.5) * 1.3, -0.55, 0.55);
   }
   function resetAim() { hovered = false; requestedScreen = null; requestedContact = null; targetYaw = -0.13; touchReach = null; }
-  function beginTouchReach({ duration = .38 } = {}) {
+  function beginTouchReach({ duration = .48 } = {}) {
     if (modalRig.enabled || !requestedContact) return;
     touchReach = { elapsed: 0, duration, started: performance.now(), radius: currentRadius, azimuth: currentAzimuth, height: currentHeight, phi: currentPhi, yaw: driveYaw };
   }
