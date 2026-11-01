@@ -109,13 +109,25 @@ export function createModalRig(THREE, {
   function applyPose(offset, amount = 0, candidate = layout, route = null) {
     const { width, height } = viewport();
     scale = homeScale.x;
-    const yaw = Math.atan2(camera.position.x - arm.position.x, camera.position.z - arm.position.z);
+    let yaw = Math.atan2(camera.position.x - arm.position.x, camera.position.z - arm.position.z);
+    if (active.kind === 'next') {
+      // Turn from the actual shoulder toward a contact in front of it, as on
+      // the homepage. The base stays put while the links extend around it.
+      raycaster.setFromCamera(new THREE.Vector2(active.target.x / width * 2 - 1, 1 - active.target.y / height * 2), camera);
+      let distance = -raycaster.ray.origin.z / raycaster.ray.direction.z;
+      if (raycaster.ray.direction.y < 0) distance = Math.min(distance, (-1.30 - raycaster.ray.origin.y) / raycaster.ray.direction.y);
+      const contact = raycaster.ray.at(Math.max(.5, distance), new THREE.Vector3()).sub(arm.position);
+      const radius = Math.hypot(contact.x, contact.z);
+      yaw = Math.asin(clamp(offset.z / Math.max(radius, Math.abs(offset.z) + 1e-5), -1, 1)) - Math.atan2(contact.z, contact.x);
+    }
     arm.rotation.y = yaw; arm.scale.copy(homeScale); arm.updateWorldMatrix(true, false);
     normal.set(Math.sin(yaw), 0, Math.cos(yaw)); inverseArm.copy(arm.matrixWorld).invert();
     const target = localOnPlane(route?.contact || { x: active.target.x + amount, y: active.target.y }, offset.z);
     const hinge = localOnPlane(route?.elbow || { x: candidate.elbow.x + amount, y: candidate.elbow.y }, 0);
     if (!target || !hinge) return null;
-    const phi = route?.phi ?? Math.PI;
+    // NEXT extends the forearm and tool along one line; a forced horizontal
+    // claw on a downward forearm would put a sharp kink at the wrist.
+    const phi = active.kind === 'next' ? Math.atan2(target.y - hinge.y, target.x - hinge.x) : route?.phi ?? Math.PI;
     const wristX = target.x - offset.x * Math.sin(phi) - offset.y * Math.cos(phi);
     const wristY = target.y + offset.x * Math.cos(phi) - offset.y * Math.sin(phi);
     const requestedL2 = Math.hypot(hinge.x - wristX, hinge.y - wristY);
@@ -138,11 +150,8 @@ export function createModalRig(THREE, {
   }
   function fit(offset) {
     const { width, height } = viewport(), gutter = Math.max(10, width - active.panel.right);
-    // Low homepage labels bring the extended tool toward the camera. Give
-    // NEXT that same substantial foreground presence, keeping its real scale
-    // and the close/home placements intact. Change depth only while hidden.
+    // Both reaches remain attached to the homepage shoulder and base.
     arm.position.copy(homePosition);
-    if (active.kind === 'next') arm.position.lerp(camera.position, 1 - 1 / 2.2);
     const projection = camera.projectionMatrix.elements;
     const key = [width, height, projection[0], projection[5], projection[8], projection[9], ...arm.position.toArray(), ...Object.values(active.panel), active.target.x, active.target.y, offset.x, offset.y, offset.z].map(n => String(Number(n.toFixed(5)))).join(',');
     if (key === fitKey && layout) return false;
@@ -154,8 +163,8 @@ export function createModalRig(THREE, {
     const fitted = {
       scale: homeScale.x,
       elbow: {
-        x: active.kind === 'next' ? active.panel.right - Math.min(14, gutter * .3) : active.panel.right + gutter * .60,
-        y: clamp(active.target.y + (active.kind === 'close' ? 1 : -1) * Math.max(50, 1.8 * unitPixels), 12, height - 12),
+        x: active.panel.right + gutter * (active.kind === 'next' ? .55 : .60),
+        y: clamp(active.target.y + (active.kind === 'close' ? Math.max(50, 1.8 * unitPixels) : -Math.min(360, Math.max(140, height * .38))), 12, height - 12),
       },
     };
     const direction = active.kind === 'close' ? 1 : -1;
