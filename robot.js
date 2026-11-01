@@ -1,9 +1,23 @@
 import * as THREE from './three.module.js';
 import { createTechnicalDrawing } from './robot-drawing.js?v=27';
 import { createMechanicalInternals } from './robot-internals.js?v=27';
-import { createModalRig } from './modal-rig.js?v=32';
+import { createModalRig } from './modal-rig.js?v=33';
 
 const ARM = { upper: 1.52, lower: 1.36, shoulderY: -0.58, tool: 0.96 };
+
+// Match the homepage's pixel magnification when its canvas moves into the
+// fullscreen dialog, including the extended mobile viewport and wide FOV.
+export function setRobotCameraViewport(camera, {
+  width, height, homeWidth = width, homeHeight = height, compact = false, modal = false,
+}) {
+  const virtualHeight = compact ? homeHeight * (0.43 / 0.78) : homeHeight;
+  camera.clearViewOffset();
+  camera.fov = !compact && homeWidth / virtualHeight > 1.9 ? 30 : 33;
+  camera.zoom = modal ? virtualHeight / height : 1;
+  camera.aspect = modal ? width / height : width / virtualHeight;
+  if (compact && !modal) camera.setViewOffset(width, virtualHeight, 0, 0, width, height);
+  camera.updateProjectionMatrix();
+}
 
 // Pick an exact point on the label's camera ray. Low labels are reached in
 // front of the base, above the floor, rather than projected below the floor.
@@ -63,6 +77,7 @@ export function solveRobotContact(target, offset, phi = null) {
 
 // A small, purpose-built articulated machine. Every visible part is geometry.
 export async function createRobotScene(canvas, options = {}) {
+  const homeContainer = document.querySelector('#lab');
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
   renderer.setClearColor(0x000000, 0);
@@ -452,16 +467,21 @@ export async function createRobotScene(canvas, options = {}) {
   function resize() {
     const rect = canvas.getBoundingClientRect();
     width = Math.max(1, rect.width); height = Math.max(1, rect.height);
-    camera.clearViewOffset();
-    const compact = !modalRig.enabled && (window.innerWidth || width) <= 700;
-    const virtualHeight = compact ? height * (0.43 / 0.78) : height;
-    camera.aspect = width / virtualHeight;
+    let homeRect = rect;
+    if (modalRig.enabled) {
+      // Read the real responsive homepage size on resize/orientation changes
+      // without moving the live canvas or duplicating its CSS breakpoints.
+      const probe = document.createElement('div');
+      probe.className = 'scene'; probe.style.visibility = 'hidden';
+      homeContainer.append(probe);
+      homeRect = probe.getBoundingClientRect(); probe.remove();
+    }
     camera.position.set(3.65, 2.70, 10.8);
-    camera.fov = !compact && camera.aspect > 1.9 ? 30 : 33;
     camera.lookAt(0, 0.24, 0);
-    // Extend mobile rendering down to the labels without resizing idle SDL-01.
-    if (compact) camera.setViewOffset(width, virtualHeight, 0, 0, width, height);
-    camera.updateProjectionMatrix();
+    setRobotCameraViewport(camera, {
+      width, height, homeWidth: Math.max(1, homeRect.width), homeHeight: Math.max(1, homeRect.height),
+      compact: (window.innerWidth || width) <= 700, modal: modalRig.enabled,
+    });
     camera.updateMatrixWorld();
     renderer.setSize(width, height, false);
     if (requestedScreen) requestedContact = mapRobotTarget(requestedScreen.x, requestedScreen.y, camera);
@@ -569,6 +589,10 @@ export async function createRobotScene(canvas, options = {}) {
     setModalMode, aimAtModal: modalRig.aimAt, resetModalAim: modalRig.resetAim, completeModalAim,
     updateModalLayout: modalRig.updateLayout,
     getModalState: modalRig.getState,
+    getSizeDiagnostics() {
+      const projection = camera.projectionMatrix.elements;
+      return { scale: arm.scale.toArray(), pixelProjection: { x: width * projection[0], y: height * projection[5] }, zoom: camera.zoom, width, height };
+    },
     getDiagnostics() {
       scene.updateMatrixWorld(true);
       const world = contactAnchor.getWorldPosition(new THREE.Vector3());

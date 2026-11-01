@@ -1,4 +1,4 @@
-import { createRobotScene } from './robot.js?v=32';
+import { createRobotScene } from './robot.js?v=33';
 import { panels } from './content.js?v=5';
 import { createModalInteraction } from './modal-interaction.js?v=32';
 

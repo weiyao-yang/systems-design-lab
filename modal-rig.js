@@ -107,9 +107,9 @@ export function createModalRig(THREE, {
   }
   function applyPose(offset, amount = 0, candidate = layout, route = null) {
     const { width, height } = viewport();
-    scale = candidate.scale;
+    scale = homeScale.x;
     const yaw = Math.atan2(camera.position.x - arm.position.x, camera.position.z - arm.position.z);
-    arm.rotation.y = yaw; arm.scale.setScalar(scale); arm.updateWorldMatrix(true, false);
+    arm.rotation.y = yaw; arm.scale.copy(homeScale); arm.updateWorldMatrix(true, false);
     normal.set(Math.sin(yaw), 0, Math.cos(yaw)); inverseArm.copy(arm.matrixWorld).invert();
     const target = localOnPlane(route?.contact || { x: active.target.x + amount, y: active.target.y }, offset.z);
     const hinge = localOnPlane(route?.elbow || { x: candidate.elbow.x + amount, y: candidate.elbow.y }, 0);
@@ -137,26 +137,24 @@ export function createModalRig(THREE, {
   }
   function fit(offset) {
     const { width, height } = viewport(), gutter = Math.max(10, width - active.panel.right);
-    const key = [width, height, ...Object.values(active.panel), active.target.x, active.target.y, offset.x, offset.y, offset.z].map(n => String(Number(n.toFixed(5)))).join(',');
+    const projection = camera.projectionMatrix.elements;
+    const key = [width, height, projection[0], projection[5], projection[8], projection[9], ...Object.values(active.panel), active.target.x, active.target.y, offset.x, offset.y, offset.z].map(n => String(Number(n.toFixed(5)))).join(',');
     if (key === fitKey && layout) return false;
     if (fittedLayouts.has(key)) {
       layout = fittedLayouts.get(key); fitKey = key;
       return true;
     }
-    let fitted = { scale: clamp(gutter / 135, 0.16, 0.9), elbow: null, stage: 0, tuck: 0 };
+    const unitPixels = height * projection[5] * homeScale.x / (2 * camera.position.distanceTo(arm.position));
+    const fitted = {
+      scale: homeScale.x,
+      elbow: {
+        x: active.panel.right + gutter * .60,
+        y: clamp(active.target.y + (active.kind === 'close' ? 1 : -1) * Math.max(50, 1.8 * unitPixels), 12, height - 12),
+      },
+    };
     const direction = active.kind === 'close' ? 1 : -1;
-    const resetElbow = () => { fitted.elbow = { x: active.panel.right + gutter * .60, y: clamp(active.target.y + direction * Math.max(76, 210 * fitted.scale), 12, height - 12) }; };
-    resetElbow();
-    // Fit the complete shell, hoses, wrist and fingers, not just joint centers.
-    for (let attempt = 0; attempt < 24; attempt++) {
-      const lengths = applyPose(offset, 0, fitted), b = boundsOf(distal);
-      if (!b || !lengths) break;
-      const right = Math.max(0, b.right - width + 5), left = Math.max(0, 5 - b.left);
-      const bottom = Math.max(0, b.bottom - height + 5), top = Math.max(0, 5 - b.top);
-      if (right < .1 && left < .1 && bottom < .1 && top < .1 && lengths.l1 >= 1.52 && lengths.l2 >= 1.36) break;
-      if (attempt % 5 === 4 || lengths.l1 < 1.52 || lengths.l2 < 1.36) { fitted.scale *= .84; resetElbow(); }
-      else { fitted.elbow.x += (left - right) * 1.15; fitted.elbow.y += (top - bottom) * 1.15; }
-    }
+    // Keep the home's full-size parts. Screen edges may crop the reaching arm;
+    // the width of the dialog gutter must never shrink the model itself.
     layout = fitted;
     applyPose(offset, 0); refreshBounds();
     layout.final = { contact: copy(active.target), elbow: copy(layout.elbow), phi: Math.PI };
