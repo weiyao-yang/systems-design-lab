@@ -54,25 +54,31 @@ export function createModalInteraction({ dialog, panel, scene, getRobot }) {
     robotInModal = true;
     paint(robot.getModalState());
   }
-  function update() {
-    frame = 0;
-    if (!active || !dialog.open) return;
+  function syncTarget() {
     const robot = getRobot();
     enterRobotMode(robot);
     const kind = hovered || focused;
     if (robot) {
       const currentState = robot.getModalState();
-      if (currentState?.kind) robot.updateModalLayout?.(specFor(currentState.kind));
+      if (currentState?.kind && currentState.kind !== kind) robot.updateModalLayout?.(specFor(currentState.kind));
       if (kind) robot.aimAtModal(specFor(kind));
       else if (lastKind) robot.resetModalAim();
       paint(robot.getModalState());
     }
     for (const [name, button] of Object.entries(controls)) button.classList.toggle('is-robot-target', name === kind);
     lastKind = kind;
+  }
+  function update() {
+    frame = 0;
+    if (!active || !dialog.open) return;
+    syncTarget();
     frame = requestAnimationFrame(update);
   }
   function refresh() {
-    if (active && !frame) frame = requestAnimationFrame(update);
+    if (!active || !dialog.open) return;
+    // Set the desired control in the input event, before the next render.
+    syncTarget();
+    if (!frame) frame = requestAnimationFrame(update);
   }
   function open() {
     if (active) { refresh(); return; }

@@ -8,10 +8,16 @@ export function createModalRig(THREE, {
   let prepared = false, elapsed = 0, duration = 0, startProgress = 0, edgeProgress = 0, reachProgress = 0;
   let contactPixel = null, errorPixels = null, scale = 1, layout = null, fitKey = '';
   let distalBounds = null, proximalBounds = null, visibleBounds = null;
+  // Keep the edge detour short enough to feel attached to a hover gesture.
+  const timing = reducedMotion
+    ? { emerge: .025, reach: .045, withdraw: .035, tuck: .025 }
+    : { emerge: .08, reach: .16, withdraw: .10, tuck: .07 };
+  const fittedLayouts = new Map();
   const homeScale = arm.scale.clone(), raycaster = new THREE.Raycaster(), plane = new THREE.Plane();
   const normal = new THREE.Vector3(), origin = new THREE.Vector3(), hit = new THREE.Vector3();
   const world = new THREE.Vector3(), projected = new THREE.Vector3(), inverseArm = new THREE.Matrix4();
   const oldScissor = new THREE.Vector4(), cornerCache = new WeakMap();
+  const screenBounds = new WeakMap();
   const distal = [], proximal = [], drawables = [];
   const distalSet = new Set();
   elbow.traverse(object => { if (object.geometry?.attributes?.position) distalSet.add(object); });
@@ -49,12 +55,19 @@ export function createModalRig(THREE, {
   function boundsOf(objects) {
     const { width, height } = viewport();
     let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
-    for (const object of objects) for (const corner of corners(object.geometry)) {
-      projected.copy(corner).applyMatrix4(object.matrixWorld).project(camera);
-      if (!Number.isFinite(projected.x + projected.y)) continue;
-      const x = (projected.x + 1) * width / 2, y = (1 - projected.y) * height / 2;
-      left = Math.min(left, x); right = Math.max(right, x);
-      top = Math.min(top, y); bottom = Math.max(bottom, y);
+    for (const object of objects) {
+      const bounds = screenBounds.get(object) || {};
+      bounds.left = Infinity; bounds.right = -Infinity; bounds.top = Infinity; bounds.bottom = -Infinity;
+      for (const corner of corners(object.geometry)) {
+        projected.copy(corner).applyMatrix4(object.matrixWorld).project(camera);
+        if (!Number.isFinite(projected.x + projected.y)) continue;
+        const x = (projected.x + 1) * width / 2, y = (1 - projected.y) * height / 2;
+        bounds.left = Math.min(bounds.left, x); bounds.right = Math.max(bounds.right, x);
+        bounds.top = Math.min(bounds.top, y); bounds.bottom = Math.max(bounds.bottom, y);
+      }
+      screenBounds.set(object, bounds);
+      left = Math.min(left, bounds.left); right = Math.max(right, bounds.right);
+      top = Math.min(top, bounds.top); bottom = Math.max(bottom, bounds.bottom);
     }
     return Number.isFinite(left) ? { left, right, top, bottom } : null;
   }
@@ -126,6 +139,10 @@ export function createModalRig(THREE, {
     const { width, height } = viewport(), gutter = Math.max(10, width - active.panel.right);
     const key = [width, height, ...Object.values(active.panel), active.target.x, active.target.y, offset.x, offset.y, offset.z].map(n => String(Number(n.toFixed(5)))).join(',');
     if (key === fitKey && layout) return false;
+    if (fittedLayouts.has(key)) {
+      layout = fittedLayouts.get(key); fitKey = key;
+      return true;
+    }
     let fitted = { scale: clamp(gutter / 135, 0.16, 0.9), elbow: null, stage: 0, tuck: 0 };
     const direction = active.kind === 'close' ? 1 : -1;
     const resetElbow = () => { fitted.elbow = { x: active.panel.right + gutter * .60, y: clamp(active.target.y + direction * Math.max(76, 210 * fitted.scale), 12, height - 12) }; };
@@ -179,11 +196,16 @@ export function createModalRig(THREE, {
       if (rightAt(middle) <= active.panel.right - 3) low = middle; else high = middle;
     }
     layout.tucked = translated(tucked, low); fitKey = key;
+    fittedLayouts.set(key, layout);
+    if (fittedLayouts.size > 4) fittedLayouts.delete(fittedLayouts.keys().next().value);
     return true;
   }
   function begin(next, seconds) {
-    phase = next; elapsed = 0; duration = seconds;
+    phase = next; elapsed = 0;
     startProgress = next === 'emerge' || next === 'tuck' ? edgeProgress : reachProgress;
+    const destination = next === 'emerge' || next === 'reach' ? 1 : 0;
+    // Reversing a partial reach only takes the remaining distance's time.
+    duration = seconds * Math.abs(destination - startProgress);
   }
   function enter(spec) { active = spec; pending = null; wanted = true; prepared = false; fitKey = ''; layer = 'behind'; phase = 'prepare'; }
   function setMode(value) {
@@ -196,7 +218,7 @@ export function createModalRig(THREE, {
   }
   function retreat() {
     if (!active || phase === 'tuck' || phase === 'withdraw') return;
-    begin(layer === 'foreground' ? 'withdraw' : 'tuck', layer === 'foreground' ? .55 : .85);
+    begin(layer === 'foreground' ? 'withdraw' : 'tuck', layer === 'foreground' ? timing.withdraw : timing.tuck);
   }
   function aimAt(input) {
     if (!enabled) return;
@@ -204,8 +226,8 @@ export function createModalRig(THREE, {
     if (!active) { enter(spec); return; }
     if (spec.kind === active.kind) {
       active = spec; pending = null; wanted = true;
-      if (phase === 'withdraw') begin('reach', .8);
-      else if (phase === 'tuck') begin('emerge', .9);
+      if (phase === 'withdraw') begin('reach', timing.reach);
+      else if (phase === 'tuck') begin('emerge', timing.emerge);
       return;
     }
     pending = spec; wanted = false; retreat();
@@ -216,38 +238,47 @@ export function createModalRig(THREE, {
     if (pending?.kind === spec.kind) pending = spec;
   }
   function resetAim() { pending = null; wanted = false; retreat(); }
+  function prepare(offset) {
+    edgeProgress = 0; reachProgress = 0; layer = 'behind'; prepared = true;
+    applyPose(offset, 0, layout, layout.tucked); refreshBounds();
+    begin(wanted ? 'emerge' : 'tuck', wanted ? timing.emerge : timing.tuck);
+  }
   function update(dt, offset) {
     if (!enabled || !active) return;
     fit(offset);
     if (!prepared) {
-      edgeProgress = 0; reachProgress = 0; layer = 'behind'; prepared = true;
-      applyPose(offset, 0, layout, layout.tucked); refreshBounds();
-      begin(wanted ? 'emerge' : 'tuck', wanted ? .9 : .85);
-      // This fully occluded preparation pose must be presented once. A long
-      // background frame must never consume the entire visible entry here.
-      return;
+      prepare(offset);
+      // Preparation starts fully occluded, then follows the same edge route
+      // immediately; don't add a blank frame to every hover or target swap.
     }
-    const presentedDt = dt > .2 ? 0 : clamp(dt, 0, 1 / 30);
-    elapsed += presentedDt;
-    const progress = duration ? clamp(elapsed / duration, 0, 1) : 1;
-    const edgePhase = phase === 'emerge' || phase === 'tuck';
-    const destination = phase === 'reach' || phase === 'hold' || phase === 'emerge' ? 1 : 0;
-    const amount = phase === 'hold' ? 1 : startProgress + (destination - startProgress) * smooth(progress);
-    if (edgePhase) edgeProgress = amount; else reachProgress = amount;
-    applyPose(offset, 0, layout, edgePhase ? edgePose(edgeProgress) : reachPose(reachProgress)); refreshBounds();
-    if (progress < 1 || phase === 'hold') return;
-    if (phase === 'emerge') {
-      if (distalBounds.left < active.panel.right + 3) return;
-      layer = 'foreground'; reachProgress = 0; begin('reach', .8); refreshBounds();
-    } else if (phase === 'reach') phase = 'hold';
-    else if (phase === 'withdraw') {
-      if (distalBounds.left < active.panel.right + 3) return;
-      layer = 'behind'; edgeProgress = 1; begin('tuck', .85); refreshBounds();
-    } else if (phase === 'tuck') {
-      if (visibleBounds) return;
-      const next = pending; active = null; pending = null; wanted = false; prepared = false; phase = 'hidden';
-      contactPixel = null; errorPixels = null;
-      if (next) enter(next);
+    // Hidden tabs supply dt=0. Visible slow frames consume their actual wall
+    // time so the gesture never becomes a multi-second animation queue.
+    let remainingDt = Math.max(0, dt);
+    for (let transition = 0; transition < 4; transition++) {
+      elapsed += remainingDt;
+      const progress = duration ? clamp(elapsed / duration, 0, 1) : 1;
+      const edgePhase = phase === 'emerge' || phase === 'tuck';
+      const destination = phase === 'reach' || phase === 'hold' || phase === 'emerge' ? 1 : 0;
+      const amount = phase === 'hold' ? 1 : startProgress + (destination - startProgress) * smooth(progress);
+      if (edgePhase) edgeProgress = amount; else reachProgress = amount;
+      applyPose(offset, 0, layout, edgePhase ? edgePose(edgeProgress) : reachPose(reachProgress)); refreshBounds();
+      if (progress < 1 || phase === 'hold') return;
+      remainingDt = Math.max(0, elapsed - duration);
+      if (phase === 'emerge') {
+        if (distalBounds.left < active.panel.right + 3) return;
+        layer = 'foreground'; reachProgress = 0; begin('reach', timing.reach); refreshBounds();
+      } else if (phase === 'reach') { phase = 'hold'; return; }
+      else if (phase === 'withdraw') {
+        if (distalBounds.left < active.panel.right + 3) return;
+        layer = 'behind'; edgeProgress = 1; begin('tuck', timing.tuck); refreshBounds();
+      } else if (phase === 'tuck') {
+        if (visibleBounds) return;
+        const next = pending; active = null; pending = null; wanted = false; prepared = false; phase = 'hidden';
+        contactPixel = null; errorPixels = null;
+        if (!next) return;
+        enter(next); fit(offset); prepare(offset);
+      }
+      if (!remainingDt) return;
     }
   }
   function render() {
@@ -259,6 +290,13 @@ export function createModalRig(THREE, {
       renderer.autoClear = false; renderer.setScissorTest(false); renderer.clear(true, true, true);
       if (!active || !prepared || !visibleBounds) return;
       renderer.setScissor(active.panel.right, 0, Math.max(0, width - active.panel.right), height); renderer.setScissorTest(true);
+      // The scissor clips pixels, but still submits every hidden chassis part.
+      // Cull only leaf drawables wholly outside this pass; parents retain all
+      // child visibility, and the exact depth/scissor occlusion stays intact.
+      for (const object of proximal) {
+        const bounds = screenBounds.get(object);
+        if (!object.children.length && bounds && (bounds.right < active.panel.right - 1 || bounds.left > width + 1 || bounds.bottom < -1 || bounds.top > height + 1)) object.visible = false;
+      }
       if (layer === 'foreground') for (const object of distal) object.visible = false;
       renderer.render(scene, camera);
       if (layer === 'foreground') {

@@ -1,6 +1,6 @@
-import { createRobotScene } from './robot.js?v=30';
+import { createRobotScene } from './robot.js?v=31';
 import { panels } from './content.js?v=5';
-import { createModalInteraction } from './modal-interaction.js?v=30';
+import { createModalInteraction } from './modal-interaction.js?v=31';
 
 const $ = s => document.querySelector(s);
 const lab = $('#lab');
