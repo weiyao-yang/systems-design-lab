@@ -456,6 +456,7 @@ export async function createRobotScene(canvas, options = {}) {
   let driveYaw = -0.13, targetYaw = -0.13;
   let requestedScreen = null, requestedContact = null, lastPose = null;
   let currentRadius = null, currentAzimuth = 0, currentHeight = 0, currentPhi = 0;
+  let touchReach = null;
   const currentContact = new THREE.Vector3();
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const modalRig = createModalRig(THREE, {
@@ -492,7 +493,24 @@ export async function createRobotScene(canvas, options = {}) {
     hovered = true;
     targetYaw = THREE.MathUtils.clamp((nx - 0.5) * 1.3, -0.55, 0.55);
   }
-  function resetAim() { hovered = false; requestedScreen = null; requestedContact = null; targetYaw = -0.13; }
+  function resetAim() { hovered = false; requestedScreen = null; requestedContact = null; targetYaw = -0.13; touchReach = null; }
+  function beginTouchReach({ duration = .38 } = {}) {
+    if (modalRig.enabled || !requestedContact) return;
+    touchReach = { elapsed: 0, duration, started: performance.now(), radius: currentRadius, azimuth: currentAzimuth, height: currentHeight, phi: currentPhi, yaw: driveYaw };
+  }
+  function endTouchReach() { touchReach = null; }
+  function getHomeAimState() {
+    const world = contactAnchor.getWorldPosition(new THREE.Vector3()).project(camera);
+    const contactPixel = { x: (world.x + 1) * width / 2, y: (1 - world.y) * height / 2 };
+    const targetPixel = requestedScreen ? { x: requestedScreen.x * width, y: requestedScreen.y * height } : null;
+    return { progress: touchReach ? Math.min(1, touchReach.elapsed / touchReach.duration) : null, contactPixel, targetPixel,
+      errorPixels: targetPixel ? Math.hypot(contactPixel.x - targetPixel.x, contactPixel.y - targetPixel.y) : null };
+  }
+  function completeHomeAim() {
+    if (modalRig.enabled || !touchReach || !requestedContact) return false;
+    renderHome(performance.now(), 0, 0, true);
+    return getHomeAimState().errorPixels < 1;
+  }
   function setActive(value) { active = Boolean(value); }
   function setModalMode(value) {
     modalRig.setMode(value);
@@ -546,6 +564,10 @@ export async function createRobotScene(canvas, options = {}) {
       modalRig.render();
       return;
     }
+    renderHome(now, dt, document.visibilityState === 'hidden' ? 0 : modalDt);
+  }
+  function renderHome(now, dt, wallDt, complete = false) {
+    const time = now / 1000;
     fingers[0].rotation.z = -0.11 + (hovered || reducedMotion ? 0 : Math.sin(time * 0.8) * 0.035);
     fingers[1].rotation.z = 0.11 - (hovered || reducedMotion ? 0 : Math.sin(time * 0.8) * 0.035);
     internalClaw.update();
@@ -558,14 +580,25 @@ export async function createRobotScene(canvas, options = {}) {
     if (currentRadius === null) {
       currentRadius = goalRadius; currentAzimuth = goalAzimuth; currentHeight = goal.y; currentPhi = goalPhi;
     }
-    const ease = 1 - Math.exp(-dt * (hovered ? 7.5 : 4.3));
-    currentRadius += (goalRadius - currentRadius) * ease;
-    currentAzimuth += Math.atan2(Math.sin(goalAzimuth - currentAzimuth), Math.cos(goalAzimuth - currentAzimuth)) * ease;
-    currentHeight += (goal.y - currentHeight) * ease;
-    currentPhi += Math.atan2(Math.sin(goalPhi - currentPhi), Math.cos(goalPhi - currentPhi)) * ease;
-    currentContact.set(currentRadius * Math.cos(currentAzimuth), currentHeight, currentRadius * Math.sin(currentAzimuth));
     const oldYaw = driveYaw;
-    driveYaw += (targetYaw - driveYaw) * (1 - Math.exp(-dt * 4.5));
+    if (touchReach) {
+      if (complete) touchReach.elapsed = touchReach.duration;
+      else if (wallDt > 0) touchReach.elapsed = Math.min(touchReach.duration, Math.max(0, (now - touchReach.started) / 1000));
+      const t = touchReach.elapsed / touchReach.duration, ease = t * t * (3 - 2 * t);
+      currentRadius = touchReach.radius + (goalRadius - touchReach.radius) * ease;
+      currentAzimuth = touchReach.azimuth + Math.atan2(Math.sin(goalAzimuth - touchReach.azimuth), Math.cos(goalAzimuth - touchReach.azimuth)) * ease;
+      currentHeight = touchReach.height + (goal.y - touchReach.height) * ease;
+      currentPhi = touchReach.phi + Math.atan2(Math.sin(goalPhi - touchReach.phi), Math.cos(goalPhi - touchReach.phi)) * ease;
+      driveYaw = touchReach.yaw + (targetYaw - touchReach.yaw) * ease;
+    } else {
+      const ease = 1 - Math.exp(-dt * (hovered ? 7.5 : 4.3));
+      currentRadius += (goalRadius - currentRadius) * ease;
+      currentAzimuth += Math.atan2(Math.sin(goalAzimuth - currentAzimuth), Math.cos(goalAzimuth - currentAzimuth)) * ease;
+      currentHeight += (goal.y - currentHeight) * ease;
+      currentPhi += Math.atan2(Math.sin(goalPhi - currentPhi), Math.cos(goalPhi - currentPhi)) * ease;
+      driveYaw += (targetYaw - driveYaw) * (1 - Math.exp(-dt * 4.5));
+    }
+    currentContact.set(currentRadius * Math.cos(currentAzimuth), currentHeight, currentRadius * Math.sin(currentAzimuth));
     drive.rotation.y = driveYaw;
     wheels.forEach((wheel, i) => { wheel.rotation.x += (driveYaw - oldYaw) * (i < 2 ? 2.5 : -2.5); });
 
@@ -585,7 +618,7 @@ export async function createRobotScene(canvas, options = {}) {
   resize();
   animate(performance.now());
   return {
-    aimAt, resetAim, setActive, resize,
+    aimAt, resetAim, setActive, resize, beginTouchReach, endTouchReach, getHomeAimState, completeHomeAim,
     setModalMode, aimAtModal: modalRig.aimAt, resetModalAim: modalRig.resetAim, completeModalAim,
     updateModalLayout: modalRig.updateLayout,
     getModalState: modalRig.getState,

@@ -1,4 +1,4 @@
-import { createRobotScene } from './robot.js?v=33';
+import { createRobotScene } from './robot.js?v=35';
 import { panels } from './content.js?v=5';
 import { createModalInteraction } from './modal-interaction.js?v=32';
 
@@ -10,6 +10,11 @@ const tags = [...document.querySelectorAll('.orbit-tag')];
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let robot, soundOn = false, audio, activePanel = 0, typingToken = 0, lastTag;
 const modalInteraction = createModalInteraction({ dialog, panel: $('#panelShell'), scene: $('#scene'), getRobot: () => robot });
+const homeInteraction = createHomeTagInteraction({
+  root: lab, tags, canInteract: () => !dialog.open && !boot.open && !lab.inert,
+  getRobot: () => robot, updateAim, reducedMotion,
+  open: tag => { lastTag = tag; showPanel(tag.dataset.panel); },
+});
 
 function tone(freq = 420, duration = .07, volume = .025) {
   if (!soundOn) return;
@@ -48,6 +53,7 @@ async function typeOpening() {
 }
 
 function showBoot() {
+  homeInteraction.cancel();
   if (dialog.open) dialog.close();
   modalInteraction.close();
   document.body.classList.remove('modal-open');
@@ -82,6 +88,7 @@ $('#soundToggle').addEventListener('click', () => {
 function showPanel(id) {
   const index = panels.findIndex(p => p.id === id);
   if (index < 0) return;
+  homeInteraction.cancel();
   activePanel = index;
   const p = panels[index];
   $('#panelEyebrow').textContent = p.eyebrow;
@@ -132,10 +139,10 @@ dialog.addEventListener('click', e => {
   if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) closePanel();
 });
 
-let hoveredTag = null, focusedTag = null, aimedTag = null, aimFrame = 0;
+let aimedTag = null, aimFrame = 0;
 function updateAim() {
   if (dialog.open || boot.open) return;
-  const tag = hoveredTag || focusedTag;
+  const tag = homeInteraction.target;
   if (!tag) {
     robot?.resetAim();
     aimedTag = null;
@@ -149,14 +156,120 @@ function updateAim() {
   // Track the real circle throughout hover scaling and responsive layout.
   if (!aimFrame) aimFrame = requestAnimationFrame(() => { aimFrame = 0; updateAim(); });
 }
-for (const tag of tags) {
-  tag.addEventListener('pointerenter', () => { hoveredTag = tag; updateAim(); });
-  tag.addEventListener('pointerleave', () => { if (hoveredTag === tag) hoveredTag = null; updateAim(); });
-  tag.addEventListener('focus', () => { focusedTag = tag; updateAim(); });
-  tag.addEventListener('blur', () => { if (focusedTag === tag) focusedTag = null; updateAim(); });
-  tag.addEventListener('click', () => { lastTag = tag; showPanel(tag.dataset.panel); });
-}
-
 showBoot();
 try { robot = await createRobotScene($('#robotCanvas'), { reducedMotion }); updateAim(); }
 catch (error) { console.warn('3D scene unavailable:', error); $('.scene-fallback').hidden = false; }
+
+// Home taps retain their target until the real fingertip reaches the circle.
+// Mouse hover and keyboard activation keep their existing direct behavior.
+export function createHomeTagInteraction({ root, tags, canInteract, getRobot, updateAim, open, reducedMotion = false }) {
+  let hovered = null, focused = null, touch = null, cancelledTag = null, activation = null;
+  let actionFrame = 0, actionTimer = 0, releaseTimer = 0;
+  const listeners = [];
+  const listen = (target, name, handler, options) => {
+    target.addEventListener(name, handler, options);
+    listeners.push(() => target.removeEventListener(name, handler, options));
+  };
+  function clearTouch() {
+    cancelAnimationFrame(actionFrame); actionFrame = 0;
+    clearTimeout(actionTimer); actionTimer = 0;
+    clearTimeout(releaseTimer); releaseTimer = 0;
+    activation = null; touch = null;
+    for (const tag of tags) tag.classList.remove('is-touch-target');
+    getRobot()?.endTouchReach?.();
+  }
+  function cancel() {
+    clearTouch(); hovered = null; focused = null;
+    updateAim();
+  }
+  function rejectTouch() {
+    cancelledTag = touch?.tag || null;
+    cancel();
+  }
+  function startTouch(tag, event) {
+    clearTouch(); hovered = null; focused = null; cancelledTag = null;
+    touch = { tag, pointerId: event.pointerId, x: event.clientX, y: event.clientY, started: performance.now() };
+    tag.classList.add('is-touch-target');
+    updateAim();
+    getRobot()?.beginTouchReach?.({ duration: reducedMotion ? .08 : .38 });
+  }
+  function activate(tag, event) {
+    if (!canInteract()) return;
+    if (cancelledTag === tag && (event.pointerType === 'touch' || event.detail > 0)) return;
+    const fromTouch = event.pointerType === 'touch' || (event.detail > 0 && touch?.tag === tag);
+    if (!fromTouch || !getRobot()) { cancel(); open(tag); return; }
+    if (activation?.tag === tag) return;
+    if (touch?.tag !== tag) startTouch(tag, event);
+    clearTimeout(releaseTimer); releaseTimer = 0;
+    const queued = { tag };
+    activation = queued;
+    let settledAt = null;
+    function finish() {
+      if (activation !== queued) return;
+      clearTouch(); hovered = null; focused = null;
+      if (canInteract()) open(tag);
+    }
+    function waitForContact() {
+      if (activation !== queued) return;
+      if (!canInteract()) { cancel(); return; }
+      const state = getRobot()?.getHomeAimState?.();
+      const arrived = state?.progress === 1 && state.errorPixels < 1;
+      if (arrived) {
+        settledAt ??= performance.now();
+        if (performance.now() - settledAt >= 60) { finish(); return; }
+      } else settledAt = null;
+      actionFrame = requestAnimationFrame(waitForContact);
+    }
+    actionFrame = requestAnimationFrame(waitForContact);
+    // Slow frames still present exact contact, then a brief pause, before open.
+    const remaining = Math.max(0, (reducedMotion ? 180 : 650) - (performance.now() - touch.started));
+    actionTimer = setTimeout(() => {
+      if (activation !== queued || !canInteract()) { cancel(); return; }
+      updateAim();
+      let completed = false;
+      try { completed = getRobot()?.completeHomeAim?.(); } catch {}
+      if (completed) {
+        settledAt = performance.now();
+        actionTimer = setTimeout(finish, 60);
+      } else finish();
+    }, remaining);
+  }
+  for (const tag of tags) {
+    listen(tag, 'pointerenter', event => {
+      if (event.pointerType !== 'touch' && canInteract()) { hovered = tag; updateAim(); }
+    });
+    listen(tag, 'pointerleave', event => {
+      if (event.pointerType === 'touch') return;
+      if (hovered === tag) hovered = null;
+      updateAim();
+    });
+    listen(tag, 'focus', () => { if (!touch && canInteract()) { focused = tag; updateAim(); } });
+    listen(tag, 'blur', () => { if (focused === tag) focused = null; updateAim(); });
+    listen(tag, 'pointerdown', event => {
+      if (event.pointerType === 'touch' && event.isPrimary !== false && canInteract()) startTouch(tag, event);
+    });
+    listen(tag, 'click', event => activate(tag, event));
+  }
+  listen(root, 'pointerdown', event => {
+    cancelledTag = null;
+    if (event.pointerType !== 'touch') { clearTouch(); updateAim(); return; }
+    if (touch?.pointerId !== event.pointerId || !touch?.tag.contains(event.target)) cancel();
+  });
+  const moved = event => touch && touch.pointerId === event.pointerId && Math.hypot(event.clientX - touch.x, event.clientY - touch.y) > 12;
+  listen(root, 'pointermove', event => { if (moved(event)) rejectTouch(); });
+  listen(root, 'pointercancel', event => { if (touch?.pointerId === event.pointerId) rejectTouch(); });
+  listen(root, 'pointerup', event => {
+    if (touch?.pointerId !== event.pointerId || activation) return;
+    if (moved(event)) { rejectTouch(); return; }
+    releaseTimer = setTimeout(() => { cancel(); }, 400);
+  });
+  listen(root, 'contextmenu', () => { if (touch) rejectTouch(); });
+  listen(root, 'keydown', event => { if (event.key === 'Tab') cancel(); });
+  listen(window, 'scroll', () => { if (touch) rejectTouch(); }, { capture: true, passive: true });
+  listen(window, 'resize', () => { if (touch) rejectTouch(); });
+  return {
+    get target() { return touch?.tag || hovered || focused; },
+    cancel,
+    destroy() { cancel(); listeners.forEach(remove => remove()); },
+  };
+}
