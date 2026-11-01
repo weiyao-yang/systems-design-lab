@@ -291,7 +291,7 @@ export async function createRobotScene(canvas, options = {}) {
     }
     pipe(drive, springPoints, 0.014, 'orange');
   }
-  // Oversized slew bearing and a broad, braced shoulder pedestal.
+  // Exposed slew bearing beneath the circular shoulder roller.
   cyl(drive, 0.62, 0.10, 'navy', 0, 0.88, -0.10, 'y');
   cyl(drive, 0.54, 0.13, 'orange', 0, 0.98, -0.10, 'y');
   cyl(drive, 0.47, 0.075, 'metal', 0, 1.065, -0.10, 'y');
@@ -301,15 +301,6 @@ export async function createRobotScene(canvas, options = {}) {
     const tooth = mesh(new THREE.BoxGeometry(0.05, 0.055, 0.085), 'blueDark', drive, Math.sin(a) * 0.566, 0.90, -0.10 + Math.cos(a) * 0.566);
     tooth.rotation.y = a;
   }
-  const pedestal = new THREE.Group(); pedestal.position.set(0, -0.75, 0); pedestal.scale.set(0.75, 1, 0.75); scene.add(pedestal);
-  box(pedestal, 0.80, 0.45, 0.81, 'blue', 0, 0.01, 0, 0.065);
-  box(pedestal, 0.58, 0.33, 0.12, 'cream', 0, 0.01, 0.46, 0.035);
-  for (let i = 0; i < 4; i++) box(pedestal, 0.40, 0.022, 0.035, 'navy', 0, -0.08 + i * 0.058, 0.535, 0.005);
-  for (const s of [-1, 1]) {
-    const brace = box(pedestal, 0.16, 0.40, 0.61, 'orange', s * 0.48, 0.025, -0.025, 0.027);
-    brace.rotation.z = s * -0.17;
-  }
-
   const arm = new THREE.Group(); arm.position.set(0, -0.58, 0); scene.add(arm);
   const shoulder = new THREE.Group(); arm.add(shoulder);
   const L1 = ARM.upper, L2 = ARM.lower;
@@ -411,17 +402,6 @@ export async function createRobotScene(canvas, options = {}) {
   cyl(sensor, 0.033, 0.022, 'cyan', 0.037, 0, 0.066);
   cyl(sensor, 0.018, 0.023, 'orangeLed', -0.05, 0, 0.066);
 
-  // Floor registration marks, rendered as quiet pieces of technical scenery.
-  const floorMarks = new THREE.Group(); floorMarks.position.y = -1.972; scene.add(floorMarks);
-  const markMaterial = new THREE.MeshBasicMaterial({ color: 0xf9f7ee, transparent: true, opacity: 0.48, depthWrite: false });
-  const arc = mesh(new THREE.TorusGeometry(1.62, 0.006, 4, 160, Math.PI * 1.72), markMaterial, floorMarks);
-  arc.rotation.x = Math.PI / 2; arc.rotation.z = 0.3; arc.castShadow = false;
-  for (let i = 0; i < 40; i++) {
-    const a = i / 40 * Math.PI * 2;
-    const dash = mesh(new THREE.BoxGeometry(0.008, 0.004, i % 5 === 0 ? 0.115 : 0.046), markMaterial, floorMarks, Math.sin(a) * 1.72, 0, Math.cos(a) * 1.72);
-    dash.rotation.y = a; dash.castShadow = false;
-  }
-
   let width = 0, height = 0, disposed = false, active = false, hovered = false;
   let frameId = 0, last = performance.now();
   let driveYaw = -0.13, targetYaw = -0.13;
@@ -494,7 +474,6 @@ export async function createRobotScene(canvas, options = {}) {
     const oldYaw = driveYaw;
     driveYaw += (targetYaw - driveYaw) * (1 - Math.exp(-dt * 4.5));
     drive.rotation.y = driveYaw;
-    pedestal.rotation.y = driveYaw * 0.52;
     wheels.forEach((wheel, i) => { wheel.rotation.x += (driveYaw - oldYaw) * (i < 2 ? 2.5 : -2.5); });
 
     const pose = solveRobotContact(currentContact, offset, currentPhi);

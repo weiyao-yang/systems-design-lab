@@ -1,4 +1,4 @@
-import { createRobotScene } from './robot.js?v=7';
+import { createRobotScene } from './robot.js?v=19';
 import { panels } from './content.js?v=5';
 
 const $ = s => document.querySelector(s);
@@ -113,7 +113,7 @@ $('#closePanel').addEventListener('click', closePanel);
 $('#nextPanel').addEventListener('click', () => showPanel(panels[(activePanel + 1) % panels.length].id));
 dialog.addEventListener('close', () => {
   document.body.classList.remove('modal-open'); lab.inert = false;
-  robot?.resetAim(); $('#robotStatus').textContent = 'AWAITING CONNECTION';
+  robot?.resetAim();
   lastTag?.focus({ preventScroll: true });
   updateAim();
 });
@@ -129,14 +129,12 @@ function updateAim() {
   const tag = hoveredTag || focusedTag;
   if (!tag) {
     robot?.resetAim();
-    $('#robotStatus').textContent = 'AWAITING CONNECTION';
     aimedTag = null;
     cancelAnimationFrame(aimFrame); aimFrame = 0;
     return;
   }
   const r = tag.querySelector('.tag-arrow').getBoundingClientRect(), c = $('#robotCanvas').getBoundingClientRect();
   robot?.aimAt((r.left + r.width / 2 - c.left) / c.width, (r.top + r.height / 2 - c.top) / c.height);
-  $('#robotStatus').textContent = `CONNECTING / ${tag.querySelector('.tag-index').textContent}`;
   if (aimedTag !== tag) tone(tag.dataset.side === 'left' ? 390 : 490, .06, .015);
   aimedTag = tag;
   // Track the real circle throughout hover scaling and responsive layout.

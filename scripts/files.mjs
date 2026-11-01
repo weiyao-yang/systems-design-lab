@@ -2,6 +2,7 @@
 // out of the public deployment. Runtime code remains directly editable.
 export const websiteFiles = [
   'index.html',
+  'assets/tic-tac-toe.svg',
   'styles.css',
   'app.js',
   'content.js',
