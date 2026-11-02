@@ -4,6 +4,8 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const clamp = (n, low, high) => Math.min(high, Math.max(low, n));
 const smooth = n => n * n * (3 - 2 * n);
 const fraction = n => n - Math.floor(n);
+const LABEL_NAMES = ['NODE', 'VECTOR', 'LINK', 'FIELD', 'SIGNAL'];
+const LABEL_COMPACT = [5.2, 6.5, 8], LABEL_DESKTOP = [5.5, 7.2, 9], LABEL_BRIGHTNESS = [.62, .82, 1];
 
 export function buildIncomingTraceLayout({ width, height, anchors = [] } = {}) {
   width = Number(width); height = Number(height);
@@ -68,69 +70,163 @@ export function buildIncomingTraceLayout({ width, height, anchors = [] } = {}) {
   return traces;
 }
 
-function pointAt(trace, progress) {
+function pointAt(trace, progress, point = {}) {
   const distance = trace.length * progress;
-  let end = 1;
-  while (end < trace.lengths.length - 1 && trace.lengths[end] < distance) end++;
-  const a = trace.points[end - 1], b = trace.points[end];
-  const t = clamp((distance - trace.lengths[end - 1]) / Math.max(1e-8, trace.lengths[end] - trace.lengths[end - 1]), 0, 1);
-  return { x: a.x + (b.x-a.x)*t, y: a.y + (b.y-a.y)*t };
+  let low = 1, high = trace.lengths.length - 1;
+  while (low < high) {
+    const middle = (low + high) >>> 1;
+    if (trace.lengths[middle] < distance) low = middle + 1;
+    else high = middle;
+  }
+  const a = trace.points[low - 1], b = trace.points[low];
+  const t = clamp((distance - trace.lengths[low - 1]) / Math.max(1e-8, trace.lengths[low] - trace.lengths[low - 1]), 0, 1);
+  point.x = a.x + (b.x-a.x)*t; point.y = a.y + (b.y-a.y)*t;
+  return point;
 }
 
-function sampleTrace(trace, progress) {
+function sampleTrace(trace, progress, frame = {}) {
   let departure = trace.start, contact = trace.arrival, fadeEnd = trace.fadeEnd, wave = 0;
+  let travel, tail = 0, opacity, phase, final = false;
   if (progress >= trace.finalDeparture) {
     departure = trace.finalDeparture; contact = trace.finalContact; wave = trace.finalWave;
-    const travel = smooth(clamp((progress - departure) / (contact - departure), 0, 1));
+    travel = smooth(clamp((progress - departure) / (contact - departure), 0, 1));
     const drainStart = Math.max(departure, contact - .20);
     const drained = smooth(clamp((progress - drainStart) / (1 - drainStart), 0, 1));
-    const tail = travel * drained;
+    tail = travel * drained;
     const remainingPixels = (travel - tail) * trace.length;
-    // The opacity follows the physical shrinking stroke, rather than hiding
-    // the entire field in one short fade. Both tail and head arrive at rest.
-    const opacity = progress >= 1 ? 0 : smooth(clamp(remainingPixels / 12, 0, 1));
-    return { wave, departure, contact, fadeEnd: 1, travel, tail, final: true, opacity,
-      phase: progress < drainStart ? 'approach' : 'drain' };
+    opacity = progress >= 1 ? 0 : smooth(clamp(remainingPixels / 12, 0, 1));
+    final = true; fadeEnd = 1; phase = progress < drainStart ? 'approach' : 'drain';
+  } else {
+    if (progress > trace.fadeEnd) {
+      const period = trace.cycleTravel + trace.cycleRest;
+      wave = 1 + Math.floor((progress - trace.fadeEnd) / period);
+      departure = trace.fadeEnd + (wave - 1) * period;
+      contact = departure + trace.cycleTravel; fadeEnd = departure + period;
+    }
+    travel = smooth(clamp((progress - departure) / (contact - departure), 0, 1));
+    opacity = progress <= departure || progress >= 1 ? 0
+      : 1 - smooth(clamp((progress - contact - .012) / (fadeEnd - contact - .012), 0, 1));
+    phase = progress <= departure ? 'waiting' : progress < contact ? 'approach' : progress < contact + .012 ? 'contact' : 'fade';
   }
-  if (progress > trace.fadeEnd) {
-    const period = trace.cycleTravel + trace.cycleRest;
-    wave = 1 + Math.floor((progress - trace.fadeEnd) / period);
-    departure = trace.fadeEnd + (wave - 1) * period;
-    contact = departure + trace.cycleTravel;
-    fadeEnd = departure + period;
-  }
-  const travel = smooth(clamp((progress - departure) / (contact - departure), 0, 1));
-  const tail = 1 - smooth(clamp((progress - contact - .012) / (fadeEnd - contact - .012), 0, 1));
-  return { wave, departure, contact, fadeEnd, travel, tail: 0, final: false,
-    opacity: progress <= departure || progress >= 1 ? 0 : tail,
-    phase: progress <= departure ? 'waiting' : progress < contact ? 'approach' : progress < contact + .012 ? 'contact' : 'fade' };
+  frame.wave = wave; frame.departure = departure; frame.contact = contact; frame.fadeEnd = fadeEnd;
+  frame.travel = travel; frame.tail = tail; frame.final = final; frame.opacity = opacity; frame.phase = phase;
+  return frame;
 }
 
-function sampleLabel(trace, frame, width, height) {
+function captionFor(trace, wave) {
+  const id = String((trace.index * 37 + wave * 97) % 997).padStart(3, '0');
+  const value = ((trace.index * 113 + wave * 227) % 997 / 997).toFixed(3).slice(1);
+  return `${LABEL_NAMES[trace.index % LABEL_NAMES.length]}_${id} ${value}`;
+}
+
+function sampleLabel(trace, frame, width, height, label = {}) {
   if (trace.labelWave !== frame.wave) {
-    const names = ['NODE', 'VECTOR', 'LINK', 'FIELD', 'SIGNAL'];
-    const id = String((trace.index * 37 + frame.wave * 97) % 997).padStart(3, '0');
-    const value = ((trace.index * 113 + frame.wave * 227) % 997 / 997).toFixed(3).slice(1);
-    trace.labelCaption = `${names[trace.index % names.length]}_${id} ${value}`;
-    trace.labelWave = frame.wave;
+    trace.labelCaption = captionFor(trace, frame.wave); trace.labelWave = frame.wave;
   }
-  const fontSize = (width <= 700 ? [5.2, 6.5, 8] : [5.5, 7.2, 9])[trace.labelTier];
+  const fontSize = (width <= 700 ? LABEL_COMPACT : LABEL_DESKTOP)[trace.labelTier];
   const labelWidth = trace.labelCaption.length * fontSize * .62 + 10;
-  const position = pointAt(trace, Math.max(frame.tail, frame.travel - .035 - trace.index % 3 * .018));
-  const align = position.x + labelWidth > width - 8 ? 'end' : 'start';
-  const left = position.x + (align === 'end' ? -labelWidth + 4 : -4);
-  const edgeClearance = Math.min(left - 4, width - 4 - left - labelWidth, position.y - 12, height - 12 - position.y);
+  pointAt(trace, Math.max(frame.tail, frame.travel - .035 - trace.index % 3 * .018), label);
+  const align = label.x + labelWidth > width - 8 ? 'end' : 'start';
+  const left = label.x + (align === 'end' ? -labelWidth + 4 : -4);
+  const edgeClearance = Math.min(left - 4, width - 4 - left - labelWidth, label.y - 12, height - 12 - label.y);
   const edgeOpacity = smooth(clamp(edgeClearance / 12, 0, 1));
   const arriving = smooth(clamp((frame.travel - .07) / .13, 0, 1));
   const settling = 1 - smooth(clamp((frame.travel - .77) / .16, 0, 1));
   const stroke = smooth(clamp(((frame.travel - frame.tail) * trace.length - 16) / 28, 0, 1));
-  const opacity = edgeOpacity * frame.opacity * arriving * settling * stroke * [.62, .82, 1][trace.labelTier];
-  return {visible: opacity > .035, text: trace.labelCaption, x: position.x, y: position.y,
-    opacity, width: labelWidth, fontSize, align};
+  const opacity = edgeOpacity * frame.opacity * arriving * settling * stroke * LABEL_BRIGHTNESS[trace.labelTier];
+  label.visible = opacity > .035; label.text = trace.labelCaption; label.opacity = opacity;
+  label.width = labelWidth; label.fontSize = fontSize; label.align = align;
+  return label;
+}
+
+// One canvas replaces the animated SVG tree on capable browsers. Curves and
+// every possible wave caption are prepared once; frames only stroke cached
+// paths and copy cached glyphs. The SVG renderer below is a compatibility path.
+function createCanvasLayer(host, document) {
+  const view = document?.defaultView || globalThis;
+  const Path = view.Path2D || globalThis.Path2D;
+  if (!host?.append || !document?.createElement || !Path) return null;
+  const canvas = document.createElement('canvas');
+  let context;
+  try { context = canvas.getContext?.('2d', {alpha: true}); } catch { return null; }
+  if (!context?.setLineDash || !context.drawImage) return null;
+  const atlas = document.createElement('canvas');
+  let atlasContext;
+  try { atlasContext = atlas.getContext?.('2d', {alpha: true}); } catch { return null; }
+  if (!atlasContext?.fillText || !atlasContext.measureText) return null;
+  canvas.setAttribute('class', 'intro-incoming-traces intro-incoming-canvas');
+  canvas.setAttribute('aria-hidden', 'true'); canvas.setAttribute('data-renderer', 'canvas');
+  canvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none;z-index:1;display:none';
+  host.append(canvas);
+  let width = 0, height = 0, ratio = 1, items = [], displayed = false, frames = 0;
+  const dash = [0, 0], cellWidth = 128, cellHeight = 24, columns = 8;
+  return {
+    resize(nextWidth, nextHeight, traces) {
+      width = nextWidth; height = nextHeight; ratio = Math.min(view.devicePixelRatio || 1, 2);
+      canvas.width = Math.max(1, Math.ceil(width * ratio)); canvas.height = Math.max(1, Math.ceil(height * ratio));
+      context.setTransform(canvas.width / Math.max(1, width), 0, 0, canvas.height / Math.max(1, height), 0, 0);
+      context.lineCap = 'round'; context.lineJoin = 'round';
+      canvas.setAttribute('data-count', traces.length); canvas.setAttribute('data-label-count', traces.length);
+      const entries = traces.reduce((total, trace) => total + trace.finalWave + 1, 0);
+      atlas.width = Math.ceil(columns * cellWidth * ratio);
+      atlas.height = Math.max(1, Math.ceil(Math.ceil(entries / columns) * cellHeight * ratio));
+      atlasContext.setTransform(ratio, 0, 0, ratio, 0, 0);
+      atlasContext.textAlign = 'left'; atlasContext.textBaseline = 'middle';
+      let fontFamily = 'monospace';
+      try { fontFamily = view.getComputedStyle?.(host).getPropertyValue('--mono').trim() || fontFamily; } catch { /* System monospace fallback. */ }
+      let entry = 0;
+      items = traces.map(trace => {
+        const path = new Path();
+        path.moveTo(trace.points[0].x, trace.points[0].y);
+        for (let i = 1; i < trace.points.length; i++) path.lineTo(trace.points[i].x, trace.points[i].y);
+        const color = trace.role === 'internal' ? '#f27620' : '#165fc9';
+        const fontSize = (width <= 700 ? LABEL_COMPACT : LABEL_DESKTOP)[trace.labelTier];
+        atlasContext.font = `${fontSize}px ${fontFamily}`; atlasContext.fillStyle = color;
+        if ('letterSpacing' in atlasContext) atlasContext.letterSpacing = `${fontSize * .02}px`;
+        const captions = [];
+        for (let wave = 0; wave <= trace.finalWave; wave++) {
+          const x = entry % columns * cellWidth, y = Math.floor(entry / columns) * cellHeight;
+          const text = captionFor(trace, wave), advance = atlasContext.measureText(text).width;
+          atlasContext.fillText(text, x + 4, y + cellHeight / 2 + .3);
+          captions.push({x: x * ratio, y: y * ratio, advance}); entry++;
+        }
+        return {path, color, captions, frame: {}, tip: {}, label: {}};
+      });
+    },
+    paint(traces, progress, active) {
+      const visible = active && progress > 0 && progress < 1;
+      if (displayed !== visible) { canvas.style.display = visible ? 'block' : 'none'; displayed = visible; }
+      if (!visible) return;
+      frames++; context.clearRect(0, 0, width, height);
+      for (let i = 0; i < traces.length; i++) {
+        const trace = traces[i], item = items[i], frame = sampleTrace(trace, progress, item.frame);
+        if (frame.opacity <= 0) continue;
+        dash[0] = Math.max(0, trace.length * (frame.travel-frame.tail)); dash[1] = trace.length + 2;
+        context.setLineDash(dash); context.lineDashOffset = -trace.length * frame.tail;
+        context.strokeStyle = item.color;
+        context.globalAlpha = frame.opacity * .065; context.lineWidth = 3.1; context.stroke(item.path);
+        context.globalAlpha = frame.opacity * .64; context.lineWidth = .9; context.stroke(item.path);
+        const tip = pointAt(trace, frame.travel, item.tip);
+        context.globalAlpha = frame.opacity * .78 * (frame.travel >= 1 ? .65 : 1);
+        context.fillStyle = item.color; context.beginPath(); context.arc(tip.x, tip.y, 1.45, 0, Math.PI * 2); context.fill();
+        const label = sampleLabel(trace, frame, width, height, item.label);
+        if (label.visible) {
+          const caption = item.captions[frame.wave];
+          const x = label.align === 'end' ? label.x - 2 - caption.advance - 4 : label.x + 2 - 4;
+          context.globalAlpha = label.opacity;
+          context.drawImage(atlas, caption.x, caption.y, cellWidth * ratio, cellHeight * ratio,
+            x, label.y - cellHeight / 2, cellWidth, cellHeight);
+        }
+      }
+      context.globalAlpha = 1;
+    },
+    get frames() { return frames; },
+    dispose() { canvas.remove(); canvas.width = atlas.width = 0; canvas.height = atlas.height = 0; items = []; },
+  };
 }
 
 export function createIncomingTraces({ host, getLayout, reducedMotion = false } = {}) {
-  let svg = null, traces = [], groups = [], begun = false, disposed = false, progress = 1, width = 0, height = 0;
+  let svg = null, canvasLayer = null, traces = [], groups = [], begun = false, disposed = false, progress = 1, width = 0, height = 0;
   const document = host?.ownerDocument || globalThis.document;
   function make(tag, attributes = {}) {
     const element = document.createElementNS(SVG_NS, tag);
@@ -147,6 +243,8 @@ export function createIncomingTraces({ host, getLayout, reducedMotion = false } 
     const layout = getLayout?.() || {};
     width = Number(layout.width) || 0; height = Number(layout.height) || 0;
     traces = buildIncomingTraceLayout(layout);
+    canvasLayer ||= createCanvasLayer(host, document);
+    if (canvasLayer) { canvasLayer.resize(width, height, traces); return; }
     ensureSvg(); groups = [];
     if (!svg) return;
     svg.setAttribute('viewBox', `0 0 ${Math.max(1,width)} ${Math.max(1,height)}`);
@@ -175,6 +273,7 @@ export function createIncomingTraces({ host, getLayout, reducedMotion = false } 
     }
   }
   function paint() {
+    if (canvasLayer) { canvasLayer.paint(traces, progress, begun && !reducedMotion); return; }
     if (!svg) return;
     const visible = begun && !reducedMotion && progress > 0 && progress < 1;
     svg.style.display = visible ? 'block' : 'none';
@@ -218,13 +317,13 @@ export function createIncomingTraces({ host, getLayout, reducedMotion = false } 
     setProgress(value) {
       if (disposed) return;
       progress=clamp(Number(value)||0,0,1);
-      if (begun && !reducedMotion && !groups.length) rebuild();
+      if (begun && !reducedMotion && (!traces.length || (!canvasLayer && !groups.length))) rebuild();
       paint();
     },
     resize() { if (disposed || !begun || reducedMotion) return; rebuild(); paint(); },
     finish() { if (disposed) return; progress=1; begun=false; paint(); },
     getState() {
-      return { active:begun && !reducedMotion && !!svg && progress>0 && progress<1, progress, width, height, count:traces.length,
+      return { active:begun && !reducedMotion && (!!svg || !!canvasLayer) && progress>0 && progress<1, progress, width, height, count:traces.length, renderer:canvasLayer ? 'canvas' : svg ? 'svg' : 'none', canvasFrames:canvasLayer?.frames || 0,
         traces:traces.map(trace=>{const frame=sampleTrace(trace,progress);
           const showing=begun&&!reducedMotion&&progress>0&&progress<1;
           const label=sampleLabel(trace,frame,width,height);
@@ -232,6 +331,6 @@ export function createIncomingTraces({ host, getLayout, reducedMotion = false } 
             ...frame,head:pointAt(trace,frame.travel),opacity:showing?frame.opacity:0,
             label:{...label,visible:showing&&label.visible,opacity:showing?label.opacity:0}};}) };
     },
-    dispose() { if (disposed) return; disposed=true; begun=false; svg?.remove(); svg=null; groups=[]; traces=[]; },
+    dispose() { if (disposed) return; disposed=true; begun=false; canvasLayer?.dispose(); canvasLayer=null; svg?.remove(); svg=null; groups=[]; traces=[]; },
   };
 }

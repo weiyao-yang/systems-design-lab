@@ -1,4 +1,4 @@
-import { createRobotScene } from './robot.js?v=42';
+import { createRobotScene } from './robot.js?v=43';
 import { panels } from './content.js?v=5';
 import { createModalInteraction } from './modal-interaction.js?v=38';
 
@@ -250,7 +250,7 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
   const originalPaddingPriority = body.style.getPropertyPriority('padding-right');
   let running = false, resolved = false, phase = 'idle', generation = 0;
   let frame = 0, streamFrame = 0, exitTimer = 0, started = 0, drawingStarted = null;
-  let streamCount = 0, progress = 0, skipRequested = false, reservedWidth = 0;
+  let streamCount = 0, progress = 0, progressPercent = -1, skipRequested = false, reservedWidth = 0;
   let streamRows = [], streamStep = 0, streamRowHeight = 18, streamHeight = 0;
   const streamInterval = 55;
   const vocabulary = ['RELATION', 'OBJECT', 'SIGNAL', 'VECTOR', 'NETWORK', 'FIELD', 'NODE', 'LINK'];
@@ -277,7 +277,11 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
   function setProgress(value) {
     progress = Math.min(1, Math.max(0, value));
     getRobot()?.setIntroProgress?.(progress);
-    if (progressLabel) progressLabel.textContent = `${String(Math.round(progress * 100)).padStart(2, '0')}%`;
+    const percent = Math.round(progress * 100);
+    if (progressLabel && percent !== progressPercent) {
+      progressPercent = percent;
+      progressLabel.textContent = `${String(percent).padStart(2, '0')}%`;
+    }
   }
   function measureData() {
     const compact = window.innerWidth <= 700 || window.innerHeight <= 560;

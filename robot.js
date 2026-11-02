@@ -1,6 +1,6 @@
 import * as THREE from './three.module.js';
 import { createTechnicalDrawing } from './robot-drawing.js?v=40';
-import { createIncomingTraces } from './intro-traces.js?v=42';
+import { createIncomingTraces } from './intro-traces.js?v=43';
 import { createMechanicalInternals } from './robot-internals.js?v=27';
 import { createModalRig } from './modal-rig.js?v=38';
 
@@ -477,6 +477,60 @@ export async function createRobotScene(canvas, options = {}) {
   let currentRadius = null, currentAzimuth = 0, currentHeight = 0, currentPhi = 0;
   let touchReach = null;
   let introMode = false, introProgress = 1, introTime = 0, idleTimeOffset = 0;
+  let introFrozen = false, introDirty = true, introDepth = null;
+  const homeMatrixWorldAutoUpdate = scene.matrixWorldAutoUpdate;
+  const introDepthSources = drawingSurfaces.filter(object => object.isMesh && object.material?.colorWrite === false);
+
+  function prepareIntroDepth() {
+    if (!introDepthSources.length) return;
+    if (!introDepth) {
+      const vertexCount = introDepthSources.reduce((sum, object) => sum + object.geometry.attributes.position.count, 0);
+      const indexCount = introDepthSources.reduce((sum, object) => sum + (object.geometry.index?.count ?? object.geometry.attributes.position.count), 0);
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertexCount * 3), 3));
+      geometry.setIndex(new THREE.BufferAttribute(new Uint32Array(indexCount), 1));
+      const mesh = new THREE.Mesh(geometry, introDepthSources[0].material);
+      mesh.name = 'intro-frozen-depth'; mesh.frustumCulled = false;
+      mesh.matrixAutoUpdate = false; mesh.matrixWorldAutoUpdate = false;
+      mesh.visible = false; scene.add(mesh);
+      introDepth = { mesh, geometry, layers: new Map(), triangles: 0 };
+    }
+    const positions = introDepth.geometry.attributes.position, indices = introDepth.geometry.index;
+    const point = new THREE.Vector3();
+    let vertexBase = 0, writeIndex = 0;
+    for (const object of introDepthSources) {
+      const source = object.geometry.attributes.position, index = object.geometry.index;
+      for (let i = 0; i < source.count; i++) {
+        point.fromBufferAttribute(source, i).applyMatrix4(object.matrixWorld);
+        positions.setXYZ(vertexBase + i, point.x, point.y, point.z);
+      }
+      let shown = object.layers.test(camera.layers);
+      for (let parent = object; parent && shown; parent = parent.parent) shown = parent.visible;
+      if (shown) {
+        const count = index?.count ?? source.count;
+        const start = object.geometry.drawRange.start;
+        const end = Math.min(count, start + object.geometry.drawRange.count);
+        for (let i = start; i < end; i++) indices.setX(writeIndex++, vertexBase + (index ? index.getX(i) : i));
+      }
+      // Layer masking excludes only this depth mesh. Its line children, if any,
+      // stay renderable; original visibility and geometry are left untouched.
+      introDepth.layers.set(object, object.layers.mask);
+      object.layers.mask = 0;
+      vertexBase += source.count;
+    }
+    positions.needsUpdate = true; indices.needsUpdate = true;
+    introDepth.geometry.setDrawRange(0, writeIndex);
+    introDepth.triangles = writeIndex / 3;
+    introDepth.mesh.visible = true;
+  }
+  function releaseIntroDepth(dispose = false) {
+    if (!introDepth) return;
+    for (const [object, mask] of introDepth.layers) object.layers.mask = mask;
+    introDepth.layers.clear(); introDepth.mesh.visible = false;
+    if (dispose) {
+      introDepth.mesh.removeFromParent(); introDepth.geometry.dispose(); introDepth = null;
+    }
+  }
   const currentContact = new THREE.Vector3();
   const reducedMotion = options.reducedMotion ?? matchMedia('(prefers-reduced-motion: reduce)').matches;
   const incomingTraces = createIncomingTraces({
@@ -504,8 +558,12 @@ export async function createRobotScene(canvas, options = {}) {
     getViewport: () => ({ width, height }),
   });
 
+  let lastViewportKey = '';
   function resize() {
     const rect = canvas.getBoundingClientRect();
+    const viewportKey = [rect.width, rect.height, window.innerWidth, window.innerHeight, modalRig.enabled].join(',');
+    if (introMode && viewportKey === lastViewportKey) return;
+    lastViewportKey = viewportKey;
     width = Math.max(1, rect.width); height = Math.max(1, rect.height);
     let homeRect = rect;
     if (modalRig.enabled) {
@@ -525,7 +583,7 @@ export async function createRobotScene(canvas, options = {}) {
     camera.updateMatrixWorld();
     renderer.setSize(width, height, false);
     if (requestedScreen) requestedContact = mapRobotTarget(requestedScreen.x, requestedScreen.y, camera);
-    if (introMode) { technicalDrawing.prepareTrace(camera); incomingTraces.resize(); }
+    if (introMode) { technicalDrawing.prepareTrace(camera); incomingTraces.resize(); introDirty = true; }
   }
   function aimAt(nx, ny) {
     requestedScreen = { x: nx, y: ny };
@@ -554,9 +612,11 @@ export async function createRobotScene(canvas, options = {}) {
   function setActive(value) { active = Boolean(value); }
   function setIntroProgress(value) {
     if (disposed) return;
-    introProgress=THREE.MathUtils.clamp(Number(value)||0,0,1);
+    const next=THREE.MathUtils.clamp(Number(value)||0,0,1);
+    incomingTraces.setProgress(next);
+    if (next===introProgress) return;
+    introProgress=next; introDirty=true;
     technicalDrawing.setReveal(introProgress);
-    incomingTraces.setProgress(introProgress);
     for (const [geometry,range] of introMechanisms) {
       if (introProgress>=1) geometry.setDrawRange(range.start,range.count);
       else {
@@ -568,6 +628,11 @@ export async function createRobotScene(canvas, options = {}) {
   }
   function beginIntro() {
     if (disposed) return;
+    // Construction and the opening controller can both report readiness.
+    // Reusing the already-empty frame avoids building the same frozen pose twice.
+    if (introMode && introProgress===0) return;
+    releaseIntroDepth(); scene.matrixWorldAutoUpdate=homeMatrixWorldAutoUpdate;
+    introFrozen=false;
     if (modalRig.enabled) setModalMode(false);
     resetAim(); active=false;
     introMode=true; introTime=performance.now()/1000-idleTimeOffset;
@@ -576,17 +641,23 @@ export async function createRobotScene(canvas, options = {}) {
     setIntroProgress(0);
     // Present an empty drawing frame immediately, including on REBOOT.
     renderHome(performance.now(),0,0);
+    prepareIntroDepth();
     technicalDrawing.prepareTrace(camera);
     incomingTraces.begin();
+    introFrozen=true; introDirty=true;
+    scene.matrixWorldAutoUpdate=false;
   }
   function finishIntro() {
     if (disposed) return;
     setIntroProgress(1);
+    if (introMode && introDirty) { renderer.render(scene,camera); introDirty=false; }
     if (introMode) idleTimeOffset=performance.now()/1000-introTime;
-    introMode=false;
+    releaseIntroDepth(); scene.matrixWorldAutoUpdate=homeMatrixWorldAutoUpdate;
+    introFrozen=false; introMode=false;
     incomingTraces.finish();
   }
   function setModalMode(value) {
+    if (value && introMode) finishIntro();
     modalRig.setMode(value);
     if (!value) {
       if (lastPose) {
@@ -641,6 +712,12 @@ export async function createRobotScene(canvas, options = {}) {
     renderHome(now, dt, document.visibilityState === 'hidden' ? 0 : modalDt);
   }
   function renderHome(now, dt, wallDt, complete = false) {
+    if (introMode && introFrozen) {
+      // The intro changes ink reveal, not the machine's pose. Submit its static
+      // matrices and one depth batch only when another reveal frame is needed.
+      if (introDirty) { renderer.render(scene,camera); introDirty=false; }
+      return;
+    }
     const time = introMode ? introTime : now / 1000 - idleTimeOffset;
     fingers[0].rotation.z = -0.11 + (hovered || reducedMotion ? 0 : Math.sin(time * 0.8) * 0.035);
     fingers[1].rotation.z = 0.11 - (hovered || reducedMotion ? 0 : Math.sin(time * 0.8) * 0.035);
@@ -700,7 +777,9 @@ export async function createRobotScene(canvas, options = {}) {
       return {active:introMode,progress:introProgress,reveal:technicalDrawing.revealProgress,
         contactPixel:{x:(pixel.x+1)*width/2,y:(1-pixel.y)*height/2},
         pose:{yaw:arm.rotation.y,shoulder:shoulder.rotation.z,elbow:elbow.rotation.z,wrist:wrist.rotation.z,l1:elbow.position.y,l2:wrist.position.y,drive:driveYaw},
-        viewport:{width,height},mechanisms:introMechanisms.size,incoming:incomingTraces.getState()};
+        viewport:{width,height},mechanisms:introMechanisms.size,incoming:incomingTraces.getState(),
+        rendering:{frozen:introFrozen,dirty:introDirty,depthSources:introDepthSources.length,
+          depthBatches:introDepth?.mesh.visible?1:0,depthTriangles:introDepth?.triangles??0}};
     },
     setModalMode, aimAtModal: modalRig.aimAt, resetModalAim: modalRig.resetAim, completeModalAim,
     updateModalLayout: modalRig.updateLayout,
@@ -728,6 +807,7 @@ export async function createRobotScene(canvas, options = {}) {
     },
     dispose() {
       disposed = true; cancelAnimationFrame(frameId); observer.disconnect();
+      releaseIntroDepth(true); scene.matrixWorldAutoUpdate=homeMatrixWorldAutoUpdate;
       incomingTraces.dispose(); technicalDrawing.dispose(); mechanics.dispose(); mechanismMaterial.dispose();
       allGeometries.forEach(g => g.dispose()); allTextures.forEach(t => t.dispose());
       technicalDrawing.replacedMaterials.forEach(material => {
