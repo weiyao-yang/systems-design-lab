@@ -581,7 +581,7 @@ export async function createRobotScene(canvas, options = {}) {
     getViewport: () => ({ width, height }),
   });
 
-  let lastViewportKey = '';
+  let lastViewportKey = '', lastCompact = null;
   function resize() {
     const rect = canvas.getBoundingClientRect();
     const introViewport = getIntroViewport();
@@ -590,7 +590,15 @@ export async function createRobotScene(canvas, options = {}) {
       window.innerWidth, window.innerHeight, modalRig.enabled].join(',');
     if (introMode && viewportKey === lastViewportKey) return;
     lastViewportKey = viewportKey;
+    const compact = (window.innerWidth || rect.width) <= 700;
+    if (introMode && introFrozen && rect.width === width && rect.height === height && compact === lastCompact) {
+      // A translated canvas or a changed overlay needs new screen endpoints,
+      // not a WebGL buffer reset or a fresh projection of the frozen machine.
+      syncIntroCopy(); incomingTraces.resize();
+      return;
+    }
     width = Math.max(1, rect.width); height = Math.max(1, rect.height);
+    lastCompact = compact;
     let homeRect = rect;
     if (modalRig.enabled) {
       // Read the real responsive homepage size on resize/orientation changes
@@ -604,7 +612,7 @@ export async function createRobotScene(canvas, options = {}) {
     camera.lookAt(0, 0.24, 0);
     setRobotCameraViewport(camera, {
       width, height, homeWidth: Math.max(1, homeRect.width), homeHeight: Math.max(1, homeRect.height),
-      compact: (window.innerWidth || width) <= 700, modal: modalRig.enabled,
+      compact, modal: modalRig.enabled,
     });
     camera.updateMatrixWorld();
     renderer.setSize(width, height, false);
