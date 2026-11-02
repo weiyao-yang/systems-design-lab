@@ -64,6 +64,9 @@ body.intro-leaving .orbit-tag{opacity:1;transform:none;transition-delay:0s}
 #bootDialog.intro-dialog[open]{display:block}
 #bootDialog.intro-dialog::backdrop{background:transparent;backdrop-filter:none}
 #bootDialog.intro-dialog.closing{opacity:0;transform:none;pointer-events:none}
+/* Let the completed opening's robot reach in front of Enter without taking input. */
+body.booting:has(#bootDialog.ready) .lab{isolation:auto}
+body.booting:has(#bootDialog.ready) .lab>.scene{z-index:13}
 
 
 
