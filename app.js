@@ -1,6 +1,6 @@
-import { createRobotScene } from './robot.js?v=46';
 import { panels } from './content.js?v=5';
 import { createModalInteraction } from './modal-interaction.js?v=38';
+import { createTitleGuides } from './intro-title-guides.js?v=47';
 
 const $ = s => document.querySelector(s);
 const lab = $('#lab');
@@ -30,7 +30,7 @@ function tone(freq = 420, duration = .07, volume = .025) {
   } catch {}
 }
 
-const opening = createOpeningSequence({ boot, lab, getRobot: () => robot, reducedMotion, playTone: tone });
+const opening = createOpeningSequence({ boot, lab, getRobot: () => robot, reducedMotion, playTone: tone, titleGuides: createTitleGuides($('#bootTitle'), { reducedMotion }) });
 
 function showBoot() {
   homeInteraction.cancel();
@@ -121,7 +121,10 @@ function updateAim() {
 showBoot();
 // Paint the data stage before constructing the detailed mechanical model.
 await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-try { robot = await createRobotScene($('#robotCanvas'), { reducedMotion, intro: boot.open }); updateAim(); }
+try {
+  const { createRobotScene } = await import('./robot.js?v=47');
+  robot = await createRobotScene($('#robotCanvas'), { reducedMotion, intro: boot.open }); updateAim();
+}
 catch (error) { console.warn('3D scene unavailable:', error); $('.scene-fallback').hidden = false; }
 finally { opening.robotReady(); }
 
@@ -241,7 +244,7 @@ export function createHomeTagInteraction({ root, tags, canInteract, getRobot, up
 
 // The intro shares the homepage canvas: only its drawing progress changes.
 // Its data stream and text leave together; the model never changes containers.
-export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = false, playTone = () => {} }) {
+export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = false, playTone = () => {}, titleGuides = null }) {
   const body = document.body, button = boot.querySelector('#enterButton');
   const data = boot.querySelector('#introData'), status = boot.querySelector('#introStatus');
   const count = boot.querySelector('#introCount'), phaseLabel = boot.querySelector('#introPhase');
@@ -277,6 +280,7 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
   function setProgress(value) {
     progress = Math.min(1, Math.max(0, value));
     getRobot()?.setIntroProgress?.(progress);
+    titleGuides?.setProgress(progress);
     const percent = Math.round(progress * 100);
     if (progressLabel && percent !== progressPercent) {
       progressPercent = percent;
@@ -346,7 +350,7 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
     frame = 0;
     if (!running || phase === 'leaving' || phase === 'ready') return;
     if (resolved && (reducedMotion || skipRequested)) { ready(); return; }
-    if (resolved && now - started >= 1000) {
+    if (resolved && now - started >= 1100) {
       if (!getRobot()) { ready(); return; }
       if (drawingStarted === null) {
         drawingStarted = now; setPhase('drawing', 'TRACING SDL—01');
@@ -368,6 +372,7 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
     status.textContent = 'COLLECTING SIGNALS. FINDING CONNECTIONS.';
     if (!boot.open) boot.show();
     getRobot()?.beginIntro?.(); setProgress(0);
+    titleGuides?.refresh();
     measureData();
     const initialRows = reducedMotion ? 3 : 6;
     for (let i = 0; i < initialRows; i++) appendData(started - (initialRows - i - 1) * streamInterval);
@@ -424,6 +429,7 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
       resolved = true;
       if (running && phase !== 'leaving' && phase !== 'ready') {
         getRobot()?.beginIntro?.(); setProgress(0);
+        body.classList.remove('opening-loading');
         if (reducedMotion || skipRequested) ready();
       }
     },
@@ -434,6 +440,7 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
       document.removeEventListener('keydown', onKey); window.removeEventListener('resize', onResize);
       if (boot.open) boot.close(); body.classList.remove('booting', 'intro-leaving');
       restorePadding(); lab.inert = false; getRobot()?.finishIntro?.();
+      titleGuides?.destroy();
     },
   };
 }

@@ -7,10 +7,13 @@
   <meta name="description" content="Systems Design Lab 系统设计实验室 — 在系统、物体与交互之间，探索新的连接。蓝橙机械臂互动空间。">
   <title>Systems Design Lab · 系统设计实验室</title>
   <link rel="icon" href="assets/tic-tac-toe.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=44">
+  <style id="opening-first-frame">
+    html{background:#f5c9dc}body{margin:0}body.opening-loading #lab>*{visibility:hidden}body.booting .lab>.topbar,body.booting .lab>.hero-heading,body.booting .lab>.orbit-nav{opacity:0}
+  </style>
+  <link rel="stylesheet" href="styles.css?v=47">
 </head>
-<body class="booting">
-  <main id="lab" class="lab">
+<body class="booting opening-loading">
+  <main id="lab" class="lab" inert>
     <header class="topbar">
       <a class="wordmark" href="./" aria-label="系统设计实验室首页"><svg class="brand-mark" viewBox="8 10 104 100" aria-hidden="true" focusable="false"><image href="assets/tic-tac-toe.svg" width="120" height="120"/></svg><span>SYSTEMS<br>DESIGN LAB<span class="brand-cn">系统设计实验室</span></span></a>
       <div class="topbar-right"><div class="topbar-controls"><button id="soundToggle" class="sound-toggle" aria-label="Enable sound / 开启音效" aria-pressed="false"><span class="sound-bars"><i></i><i></i><i></i><i></i></span><span id="soundState">SOUND OFF</span></button><button class="reboot" id="reboot" aria-label="Reboot introduction / 重新播放开屏"><span class="reboot-icon" aria-hidden="true">↻</span><span>REBOOT</span></button></div></div>
@@ -27,19 +30,26 @@
     </nav>
   </main>
 
-  <dialog id="bootDialog" class="boot-dialog intro-dialog" aria-labelledby="bootTitle" aria-describedby="introStatus" tabindex="-1">
+  <dialog id="bootDialog" class="boot-dialog intro-dialog" aria-labelledby="bootTitle" aria-describedby="introStatus" tabindex="-1" open aria-busy="true" data-intro-stage="data">
     <section class="intro-stream" aria-label="Live data visualization">
-      <div class="intro-stream-heading"><span><i></i><span id="introPhase">INCOMING DATA</span></span><span id="introCount">00000</span></div>
-      <div id="introData" class="intro-data" aria-hidden="true"></div>
-      <div class="intro-stream-footer"><span id="introStatus" role="status">LISTENING FOR CONNECTIONS</span><span id="introProgress" aria-hidden="true">00%</span></div>
+      <div class="intro-stream-heading"><span><i></i><span id="introPhase">RECEIVING INPUT</span></span><span id="introCount">000006</span></div>
+      <div id="introData" class="intro-data" aria-hidden="true">
+        <div class="intro-data-row intro-data-seed" style="--intro-seed:5"><span class="intro-data-index">0001</span><span class="intro-data-value">OBJECT_037  0.9937</span><span class="intro-data-tag">MAPPING</span></div>
+        <div class="intro-data-row intro-data-seed" style="--intro-seed:4"><span class="intro-data-index">0002</span><span class="intro-data-value">SIGNAL_074  0.3435</span><span class="intro-data-tag">RESOLVED</span></div>
+        <div class="intro-data-row intro-data-seed" style="--intro-seed:3"><span class="intro-data-index">0003</span><span class="intro-data-value">VECTOR_111  0.0560</span><span class="intro-data-tag">CONNECTED</span></div>
+        <div class="intro-data-row intro-data-seed is-accent" style="--intro-seed:2"><span class="intro-data-index">0004</span><span class="intro-data-value">NETWORK_148  0.7973</span><span class="intro-data-tag">MAPPING</span></div>
+        <div class="intro-data-row intro-data-seed is-muted" style="--intro-seed:1"><span class="intro-data-index">0005</span><span class="intro-data-value">FIELD_185  0.8498</span><span class="intro-data-tag">RESOLVED</span></div>
+        <div class="intro-data-row intro-data-seed" style="--intro-seed:0"><span class="intro-data-index">0006</span><span class="intro-data-value">NODE_222  0.0918</span><span class="intro-data-tag">CONNECTED</span></div>
+      </div>
+      <div class="intro-stream-footer"><span id="introStatus" role="status">COLLECTING SIGNALS. FINDING CONNECTIONS.</span><span id="introProgress" aria-hidden="true">00%</span></div>
     </section>
     <div class="intro-copy">
-      <h2 id="bootTitle"><span>SYSTEMS</span><span>DESIGN LAB</span></h2>
+      <h2 id="bootTitle" aria-label="Systems Design Lab"><span class="intro-title-line" aria-hidden="true"><span class="intro-letter">S</span><span class="intro-letter">Y</span><span class="intro-letter">S</span><span class="intro-letter">T</span><span class="intro-letter">E</span><span class="intro-letter">M</span><span class="intro-letter">S</span></span><span class="intro-title-line" aria-hidden="true"><span class="intro-letter">D</span><span class="intro-letter">E</span><span class="intro-letter">S</span><span class="intro-letter">I</span><span class="intro-letter">G</span><span class="intro-letter">N</span><span class="intro-title-space"> </span><span class="intro-letter">L</span><span class="intro-letter">A</span><span class="intro-letter">B</span></span></h2>
       <div class="intro-enter-row"><button id="enterButton" class="intro-enter" aria-label="Enter Systems Design Lab / 进入系统设计实验室" disabled><span>Enter</span><span class="intro-enter-arrow" aria-hidden="true">↵</span></button><span class="intro-continue">To Continue</span></div>
     </div>
   </dialog>
 
   <dialog id="contentDialog" class="content-dialog" aria-labelledby="panelTitle"><div id="panelShell" class="panel-shell" tabindex="-1"><div class="panel-top"><span id="panelEyebrow"></span><button id="closePanel" class="close-panel" aria-label="Close panel / 关闭弹窗"><span class="close-icon" aria-hidden="true">✕</span><span class="close-shortcut">ESC</span></button></div><div id="panelContent" class="panel-content"></div><div class="panel-bottom"><span>SYSTEMS DESIGN LAB / EXPLORATION MODE</span><button id="nextPanel">NEXT CONNECTION <span>↗</span><small class="zh-copy">下一个连接</small></button></div></div></dialog>
-  <script type="module" src="app.js?v=46"></script>
+  <script type="module" src="app.js?v=47"></script>
 </body>
 </html>

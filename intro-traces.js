@@ -43,27 +43,24 @@ export function buildIncomingTraceLayout({ width, height, anchors = [] } = {}) {
       points.push(point);
     }
     const baseArrival = clamp(Number.isFinite(anchor.arrival) ? anchor.arrival : .20 + sourceOrder / Math.max(1, anchors.length-1) * .28, .16, .72);
-    const arrival = baseArrival + (anchor.lane ? .035 + fraction(index * .2718281828) * .035 : 0);
+    // Both lanes leave together. The first reaches the real contour when its
+    // ink begins; the second keeps feeding it throughout the same single pass.
+    // A slow lane must not wait for the fast lane to disappear before starting.
+    const arrival = anchor.lane ? .84 + fraction(index * .7548776662) * .16 : baseArrival;
     const trace = { index, sourceIndex: anchor.sourceIndex, lane: anchor.lane, side,
       role: anchor.role === 'internal' ? 'internal' : 'shell', origin, anchor: end, points, lengths,
-      length, start: Math.max(.015, arrival - .20), arrival, fadeEnd: arrival + .065,
-      cycleTravel: .185 + fraction(index * .38196601125) * .025,
-      cycleRest: .055 };
-    const period = trace.cycleTravel + trace.cycleRest;
-    // Extend an already scheduled wave instead of restarting the path when
-    // the ending begins. Its outside tail will follow it into the machine.
-    trace.finalDeparture = trace.fadeEnd + Math.max(0, Math.floor((.82 - trace.fadeEnd) / period)) * period;
-    trace.finalWave = 1 + Math.round((trace.finalDeparture - trace.fadeEnd) / period);
-    trace.finalContact = .985 + fraction(index * .7548776662) * .015;
+      length, start: .012 + fraction(index * .41421356237) * .028,
+      arrival, drainStart: .055 + fraction(index * .2718281828) * .035,
+      finalWave: 0 };
     return trace;
   });
-  // Keep one visible final arrival on every side until the exact last frame.
+  // Keep one moving head on every side until the exact last frame.
   // A central anchor also avoids choosing a cropped wheel on short phones.
   for (let side = 0; side < 4; side++) {
-    const candidates = traces.filter(trace => trace.side === side);
+    const candidates = traces.filter(trace => trace.side === side && trace.lane === 1);
     const score = trace => Math.hypot((trace.anchor.x - width / 2) / width, (trace.anchor.y - height / 2) / height);
     const leader = candidates.reduce((best, trace) => !best || score(trace) < score(best) ? trace : best, null);
-    if (leader) leader.finalContact = 1;
+    if (leader) leader.arrival = 1;
   }
   // Every wire carries data; size and brightness create a readable hierarchy.
   traces.forEach(trace => { trace.labelTier = trace.index % 7 === 0 ? 2 : trace.index % 3 === 0 ? 1 : 0; });
@@ -85,31 +82,19 @@ function pointAt(trace, progress, point = {}) {
 }
 
 function sampleTrace(trace, progress, frame = {}) {
-  let departure = trace.start, contact = trace.arrival, fadeEnd = trace.fadeEnd, wave = 0;
-  let travel, tail = 0, opacity, phase, final = false;
-  if (progress >= trace.finalDeparture) {
-    departure = trace.finalDeparture; contact = trace.finalContact; wave = trace.finalWave;
-    travel = smooth(clamp((progress - departure) / (contact - departure), 0, 1));
-    const drainStart = Math.max(departure, contact - .20);
-    const drained = smooth(clamp((progress - drainStart) / (1 - drainStart), 0, 1));
-    tail = travel * drained;
-    const remainingPixels = (travel - tail) * trace.length;
-    opacity = progress >= 1 ? 0 : smooth(clamp(remainingPixels / 12, 0, 1));
-    final = true; fadeEnd = 1; phase = progress < drainStart ? 'approach' : 'drain';
-  } else {
-    if (progress > trace.fadeEnd) {
-      const period = trace.cycleTravel + trace.cycleRest;
-      wave = 1 + Math.floor((progress - trace.fadeEnd) / period);
-      departure = trace.fadeEnd + (wave - 1) * period;
-      contact = departure + trace.cycleTravel; fadeEnd = departure + period;
-    }
-    travel = smooth(clamp((progress - departure) / (contact - departure), 0, 1));
-    opacity = progress <= departure || progress >= 1 ? 0
-      : 1 - smooth(clamp((progress - contact - .012) / (fadeEnd - contact - .012), 0, 1));
-    phase = progress <= departure ? 'waiting' : progress < contact ? 'approach' : progress < contact + .012 ? 'contact' : 'fade';
-  }
-  frame.wave = wave; frame.departure = departure; frame.contact = contact; frame.fadeEnd = fadeEnd;
-  frame.travel = travel; frame.tail = tail; frame.final = final; frame.opacity = opacity; frame.phase = phase;
+  // Head and tail each cross this curve once, monotonically. After contact the
+  // tail continues flowing into that same point; nothing fades out and restarts
+  // at the screen edge. Linear arc-length travel also avoids a mass ease-out
+  // pause just before the last wires arrive.
+  const travel = clamp((progress - trace.start) / (trace.arrival - trace.start), 0, 1);
+  const drained = clamp((progress - trace.drainStart) / (1 - trace.drainStart), 0, 1);
+  const tail = travel * drained;
+  const remainingPixels = (travel - tail) * trace.length;
+  const fadeIn = smooth(clamp((progress - trace.start) / .018, 0, 1));
+  frame.wave = 0; frame.departure = trace.start; frame.contact = trace.arrival; frame.fadeEnd = 1;
+  frame.travel = travel; frame.tail = tail; frame.final = true;
+  frame.opacity = progress >= 1 ? 0 : fadeIn * clamp(remainingPixels / 2, 0, 1);
+  frame.phase = progress <= trace.start ? 'waiting' : progress < trace.arrival ? 'approach' : 'drain';
   return frame;
 }
 
@@ -125,13 +110,14 @@ function sampleLabel(trace, frame, width, height, label = {}) {
   }
   const fontSize = (width <= 700 ? LABEL_COMPACT : LABEL_DESKTOP)[trace.labelTier];
   const labelWidth = trace.labelCaption.length * fontSize * .62 + 10;
-  pointAt(trace, Math.max(frame.tail, frame.travel - .035 - trace.index % 3 * .018), label);
+  const packet = frame.tail + (frame.travel - frame.tail) * (.55 + trace.index % 3 * .09);
+  pointAt(trace, packet, label);
   const align = label.x + labelWidth > width - 8 ? 'end' : 'start';
   const left = label.x + (align === 'end' ? -labelWidth + 4 : -4);
   const edgeClearance = Math.min(left - 4, width - 4 - left - labelWidth, label.y - 12, height - 12 - label.y);
   const edgeOpacity = smooth(clamp(edgeClearance / 12, 0, 1));
-  const arriving = smooth(clamp((frame.travel - .07) / .13, 0, 1));
-  const settling = 1 - smooth(clamp((frame.travel - .77) / .16, 0, 1));
+  const arriving = smooth(clamp((packet - .07) / .13, 0, 1));
+  const settling = 1 - smooth(clamp((packet - .86) / .12, 0, 1));
   const stroke = smooth(clamp(((frame.travel - frame.tail) * trace.length - 16) / 28, 0, 1));
   const opacity = edgeOpacity * frame.opacity * arriving * settling * stroke * LABEL_BRIGHTNESS[trace.labelTier];
   label.visible = opacity > .035; label.text = trace.labelCaption; label.opacity = opacity;
@@ -143,7 +129,7 @@ function sampleLabel(trace, frame, width, height, label = {}) {
 // stretch a viewport-sized backing surface inside its smaller 100svh clip.
 // getLayout supplies host-local CSS coordinates, measured once on resize.
 // One canvas replaces the animated SVG tree on capable browsers. Curves and
-// every possible wave caption are prepared once; frames only stroke cached
+// wire captions are prepared once; frames only stroke cached
 // paths and copy cached glyphs. The SVG renderer below is a compatibility path.
 function createCanvasLayer(host, document) {
   const view = document?.defaultView || globalThis;

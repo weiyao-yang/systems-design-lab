@@ -1,6 +1,6 @@
 import * as THREE from './three.module.js';
 import { createTechnicalDrawing } from './robot-drawing.js?v=44';
-import { createIncomingTraces } from './intro-traces.js?v=45';
+import { createIncomingTraces } from './intro-traces.js?v=46';
 import { createMechanicalInternals } from './robot-internals.js?v=27';
 import { createModalRig } from './modal-rig.js?v=38';
 
