@@ -166,6 +166,9 @@ function createCanvasLayer(host, document) {
   return {
     resize(nextWidth, nextHeight, traces) {
       width = nextWidth; height = nextHeight; ratio = Math.min(view.devicePixelRatio || 1, 2);
+      // Keep logical CSS pixels and the bitmap in step. Percentage sizing
+      // stretches old paths when mobile browser chrome changes the host first.
+      canvas.style.width = `${width}px`; canvas.style.height = `${height}px`;
       canvas.width = Math.max(1, Math.ceil(width * ratio)); canvas.height = Math.max(1, Math.ceil(height * ratio));
       context.setTransform(canvas.width / Math.max(1, width), 0, 0, canvas.height / Math.max(1, height), 0, 0);
       context.lineCap = 'round'; context.lineJoin = 'round';
@@ -250,6 +253,7 @@ export function createIncomingTraces({ host, getLayout, reducedMotion = false } 
     if (canvasLayer) { canvasLayer.resize(width, height, traces); return; }
     ensureSvg(); groups = [];
     if (!svg) return;
+    svg.style.width = `${width}px`; svg.style.height = `${height}px`;
     svg.setAttribute('viewBox', `0 0 ${Math.max(1,width)} ${Math.max(1,height)}`);
     svg.replaceChildren();
     for (const trace of traces) {

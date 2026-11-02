@@ -1,6 +1,6 @@
 import * as THREE from './three.module.js';
 import { createTechnicalDrawing } from './robot-drawing.js?v=44';
-import { createIncomingTraces } from './intro-traces.js?v=44';
+import { createIncomingTraces } from './intro-traces.js?v=45';
 import { createMechanicalInternals } from './robot-internals.js?v=27';
 import { createModalRig } from './modal-rig.js?v=38';
 
@@ -471,7 +471,7 @@ export async function createRobotScene(canvas, options = {}) {
   });
 
   let width = 0, height = 0, disposed = false, active = false, hovered = false;
-  let frameId = 0, last = performance.now();
+  let frameId = 0, introViewportFrame = 0, last = performance.now();
   let driveYaw = -0.13, targetYaw = -0.13;
   let requestedScreen = null, requestedContact = null, lastPose = null;
   let currentRadius = null, currentAzimuth = 0, currentHeight = 0, currentPhi = 0;
@@ -611,6 +611,15 @@ export async function createRobotScene(canvas, options = {}) {
     if (requestedScreen) requestedContact = mapRobotTarget(requestedScreen.x, requestedScreen.y, camera);
     if (introMode) { technicalDrawing.prepareTrace(camera); syncIntroCopy(); incomingTraces.resize(); introDirty = true; }
   }
+  function syncIntroViewport() {
+    if (disposed || !introMode || introViewportFrame) return;
+    // Scroll restoration and mobile browser bars can move the live canvas
+    // without resizing it. Coalesce their events and reuse the rect guard.
+    introViewportFrame = requestAnimationFrame(() => {
+      introViewportFrame = 0;
+      if (!disposed && introMode) resize();
+    });
+  }
   function aimAt(nx, ny) {
     requestedScreen = { x: nx, y: ny };
     requestedContact = mapRobotTarget(nx, ny, camera);
@@ -676,6 +685,7 @@ export async function createRobotScene(canvas, options = {}) {
   }
   function finishIntro() {
     if (disposed) return;
+    cancelAnimationFrame(introViewportFrame); introViewportFrame = 0;
     setIntroProgress(1);
     if (introMode && introDirty) { renderer.render(scene,camera); introDirty=false; }
     if (introMode) idleTimeOffset=performance.now()/1000-introTime;
@@ -793,6 +803,12 @@ export async function createRobotScene(canvas, options = {}) {
     renderer.render(scene, camera);
   }
   const observer = new ResizeObserver(resize); observer.observe(canvas);
+  const introViewportObserver = introHost ? new ResizeObserver(syncIntroViewport) : null;
+  introViewportObserver?.observe(introHost);
+  const introVisualViewport = window.visualViewport;
+  window.addEventListener?.('scroll', syncIntroViewport, {passive: true});
+  introVisualViewport?.addEventListener('resize', syncIntroViewport, {passive: true});
+  introVisualViewport?.addEventListener('scroll', syncIntroViewport, {passive: true});
   resize();
   if (options.intro) beginIntro();
   animate(performance.now());
@@ -834,6 +850,10 @@ export async function createRobotScene(canvas, options = {}) {
     },
     dispose() {
       disposed = true; cancelAnimationFrame(frameId); observer.disconnect();
+      cancelAnimationFrame(introViewportFrame); introViewportObserver?.disconnect();
+      window.removeEventListener?.('scroll', syncIntroViewport);
+      introVisualViewport?.removeEventListener('resize', syncIntroViewport);
+      introVisualViewport?.removeEventListener('scroll', syncIntroViewport);
       releaseIntroDepth(true); scene.matrixWorldAutoUpdate=homeMatrixWorldAutoUpdate;
       incomingTraces.dispose(); technicalDrawing.dispose(); mechanics.dispose(); mechanismMaterial.dispose();
       allGeometries.forEach(g => g.dispose()); allTextures.forEach(t => t.dispose());
