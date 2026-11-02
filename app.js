@@ -88,6 +88,7 @@ dialog.addEventListener('cancel', () => modalInteraction.close());
 dialog.addEventListener('close', () => {
   if (dialog.open) return;
   modalInteraction.close();
+  homeInteraction.resetAfterModal();
   document.body.classList.remove('modal-open');
   lab.inert = boot.open;
   if (boot.open) return;
@@ -136,6 +137,7 @@ finally { opening.robotReady(); }
 // Mouse hover and keyboard activation keep their existing direct behavior.
 export function createHomeTagInteraction({ root, tags, canInteract, getRobot, updateAim, open, reducedMotion = false, acceptFocus = () => true }) {
   let hovered = null, focused = null, touch = null, cancelledTag = null, activation = null;
+  let needsFreshInput = false;
   let actionFrame = 0, actionTimer = 0, releaseTimer = 0;
   const listeners = [];
   const listen = (target, name, handler, options) => {
@@ -167,6 +169,7 @@ export function createHomeTagInteraction({ root, tags, canInteract, getRobot, up
   }
   function activate(tag, event) {
     if (!canInteract()) return;
+    needsFreshInput = false;
     if (cancelledTag === tag && (event.pointerType === 'touch' || event.detail > 0)) return;
     const fromTouch = event.pointerType === 'touch' || (event.detail > 0 && touch?.tag === tag);
     if (!fromTouch || !getRobot()) { cancel(); open(tag); return; }
@@ -208,17 +211,25 @@ export function createHomeTagInteraction({ root, tags, canInteract, getRobot, up
   }
   for (const tag of tags) {
     listen(tag, 'pointerenter', event => {
-      if (event.pointerType !== 'touch' && canInteract()) { hovered = tag; updateAim(); }
+      if (!needsFreshInput && event.pointerType !== 'touch' && canInteract()) { hovered = tag; updateAim(); }
+    });
+    listen(tag, 'pointermove', event => {
+      if (needsFreshInput && event.pointerType !== 'touch' && canInteract()) {
+        needsFreshInput = false; hovered = tag; updateAim();
+      }
     });
     listen(tag, 'pointerleave', event => {
       if (event.pointerType === 'touch') return;
       if (hovered === tag) hovered = null;
       updateAim();
     });
-    listen(tag, 'focus', () => { if (!touch && canInteract() && acceptFocus(tag)) { focused = tag; updateAim(); } });
+    listen(tag, 'focus', () => { if (!needsFreshInput && !touch && canInteract() && acceptFocus(tag)) { focused = tag; updateAim(); } });
     listen(tag, 'blur', () => { if (focused === tag) focused = null; updateAim(); });
     listen(tag, 'pointerdown', event => {
+      if (!canInteract()) return;
+      needsFreshInput = false;
       if (event.pointerType === 'touch' && event.isPrimary !== false && canInteract()) startTouch(tag, event);
+      else if (event.pointerType !== 'touch') { hovered = tag; updateAim(); }
     });
     listen(tag, 'click', event => activate(tag, event));
   }
@@ -236,13 +247,18 @@ export function createHomeTagInteraction({ root, tags, canInteract, getRobot, up
     releaseTimer = setTimeout(() => { cancel(); }, 400);
   });
   listen(root, 'contextmenu', () => { if (touch) rejectTouch(); });
-  listen(root, 'keydown', event => { if (event.key === 'Tab') cancel(); });
+  listen(root, 'keydown', event => { if (event.key === 'Tab') { needsFreshInput = false; cancel(); } });
   listen(window, 'scroll', () => { if (touch) rejectTouch(); }, { capture: true, passive: true });
   listen(window, 'resize', () => { if (touch) rejectTouch(); });
   return {
     get target() { return touch?.tag || hovered || focused; },
     activate,
     focus(tag) { focused = tag && canInteract() ? tag : null; updateAim(); },
+    resetAfterModal() {
+      // Native dialog focus/pointer restoration must not re-arm the old reach.
+      // Keep DOM focus for keyboard access, then wait for an actual new input.
+      needsFreshInput = true; cancel();
+    },
     cancel,
     destroy() { cancel(); listeners.forEach(remove => remove()); },
   };
