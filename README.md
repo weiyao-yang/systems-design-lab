@@ -1,6 +1,10 @@
 # Systems Design Lab · 系统设计实验室
 
-蓝橙机械臂互动网站：开屏打字、街机按钮、标签联动、机械臂精确触达与虚化弹窗。页面以英文为主、中文为辅。
+蓝橙机械臂互动网站：全屏数据流开场、机械臂线稿绘制、Enter 过渡、标签联动、机械臂精确触达与虚化弹窗。页面以英文为主、中文为辅。
+
+线上网站：[Systems Design Lab](https://weiyao-yang.github.io/systems-design-lab/)。仓库保留完整可编辑源码，可在另一台电脑通过 Git 克隆或下载 ZIP 后继续编辑、预览和部署。
+
+开场数据持续平滑向上滚动，约 1 秒后，蓝橙线条持续从四面八方汇入，直到沿真实轮廓构成完整机械臂；绘制约持续 4.2 秒。引线增加到约 60 条，每条都携带随行的数据标签，标签为无边框、无底框的悬浮文字，字号与明暗分层；结束时引线沿路径平滑收进机械臂。点击 Enter 时数据和文字同步淡出，机械臂保留原位。REBOOT 可重新播放。
 
 这是完整的可编辑源码。把整个项目下载到另一台电脑后，可以继续预览、修改并重新部署，无需原来的电脑或开发环境。
 
@@ -13,7 +17,7 @@
 安装 Git 后，在终端执行：
 
 ```sh
-git clone https://github.com/qiaolihai/systems-design-lab.git
+git clone https://github.com/weiyao-yang/systems-design-lab.git
 cd systems-design-lab
 ```
 
@@ -21,7 +25,7 @@ cd systems-design-lab
 
 ### 方式 B：下载 ZIP
 
-打开 [项目仓库](https://github.com/qiaolihai/systems-design-lab)，点击 **Code → Download ZIP**，解压整个压缩包。在解压后的项目文件夹中打开终端；该文件夹应包含 `package.json` 和 `index.html`。
+打开 [项目仓库](https://github.com/weiyao-yang/systems-design-lab)，点击 **Code → Download ZIP**，解压整个压缩包。在解压后的项目文件夹中打开终端；该文件夹应包含 `package.json` 和 `index.html`。
 
 请保留 `.github/`、`.gitignore` 和 `.nojekyll` 等以点开头的文件或文件夹。
 
@@ -41,9 +45,10 @@ npm start
 | 颜色、字体、尺寸、位置、响应式外观 | `styles.css` |
 | 机械臂原始外形、关节和运动 | `robot.js` |
 | 蓝色外壳轮廓、隐藏线和透视线稿 | `robot-drawing.js` |
+| 开场从屏幕四周引入的线条路径与接入动画 | `intro-traces.js` |
 | 橙色内部轴承、齿轮、电机和传动结构 | `robot-internals.js` |
 | 页面结构、标签、开屏布局 | `index.html` |
-| 打字、弹窗、音效、标签和按钮交互 | `app.js` |
+| 开场阶段、数据流、弹窗、音效、标签和按钮交互 | `app.js` |
 
 `three.module.js` 是已随项目打包的 Three.js 运行库，其许可保存在 `THREE-LICENSE.txt`。通常无需修改这两个文件。
 

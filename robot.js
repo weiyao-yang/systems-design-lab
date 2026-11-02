@@ -1,5 +1,6 @@
 import * as THREE from './three.module.js';
-import { createTechnicalDrawing } from './robot-drawing.js?v=27';
+import { createTechnicalDrawing } from './robot-drawing.js?v=40';
+import { createIncomingTraces } from './intro-traces.js?v=42';
 import { createMechanicalInternals } from './robot-internals.js?v=27';
 import { createModalRig } from './modal-rig.js?v=38';
 
@@ -457,8 +458,16 @@ export async function createRobotScene(canvas, options = {}) {
 
   scene.updateMatrixWorld(true);
   const technicalDrawing = createTechnicalDrawing(THREE, drawingSurfaces, { color: 0x165fc9 });
+  const introMechanisms = new Map();
   scene.traverse(object => {
-    if (object.userData.drawingRole === 'mechanism') object.renderOrder = 20;
+    if (object.userData.drawingRole === 'mechanism') {
+      object.renderOrder = 20;
+      if (object.geometry?.attributes?.position && !introMechanisms.has(object.geometry)) {
+        const geometry=object.geometry;
+        introMechanisms.set(geometry,{start:geometry.drawRange.start,count:geometry.drawRange.count,total:geometry.index?.count ?? geometry.attributes.position.count,
+          arrival:technicalDrawing.getTraceStart(object)+.08});
+      }
+    }
   });
 
   let width = 0, height = 0, disposed = false, active = false, hovered = false;
@@ -467,8 +476,23 @@ export async function createRobotScene(canvas, options = {}) {
   let requestedScreen = null, requestedContact = null, lastPose = null;
   let currentRadius = null, currentAzimuth = 0, currentHeight = 0, currentPhi = 0;
   let touchReach = null;
+  let introMode = false, introProgress = 1, introTime = 0, idleTimeOffset = 0;
   const currentContact = new THREE.Vector3();
-  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const reducedMotion = options.reducedMotion ?? matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const incomingTraces = createIncomingTraces({
+    host: document.querySelector('#bootDialog'), reducedMotion,
+    getLayout() {
+      const rect = canvas.getBoundingClientRect();
+      return { width: window.innerWidth || width, height: window.innerHeight || height,
+        anchors: technicalDrawing.getTraceAnchors().map(anchor => {
+          const projected = anchor.point.project(camera);
+          return { index: anchor.index, role: anchor.role, arrival: anchor.arrival,
+            x: (rect.left || 0) + (projected.x + 1) * width / 2,
+            y: (rect.top || 0) + (1 - projected.y) * height / 2 };
+        }),
+      };
+    },
+  });
   const modalRig = createModalRig(THREE, {
     camera, scene, renderer, arm, shoulder, elbow, wrist, upperLink, forearmLink,
     shoulderTransmission, contactAnchor, reducedMotion,
@@ -501,6 +525,7 @@ export async function createRobotScene(canvas, options = {}) {
     camera.updateMatrixWorld();
     renderer.setSize(width, height, false);
     if (requestedScreen) requestedContact = mapRobotTarget(requestedScreen.x, requestedScreen.y, camera);
+    if (introMode) { technicalDrawing.prepareTrace(camera); incomingTraces.resize(); }
   }
   function aimAt(nx, ny) {
     requestedScreen = { x: nx, y: ny };
@@ -527,6 +552,40 @@ export async function createRobotScene(canvas, options = {}) {
     return getHomeAimState().errorPixels < 1;
   }
   function setActive(value) { active = Boolean(value); }
+  function setIntroProgress(value) {
+    if (disposed) return;
+    introProgress=THREE.MathUtils.clamp(Number(value)||0,0,1);
+    technicalDrawing.setReveal(introProgress);
+    incomingTraces.setProgress(introProgress);
+    for (const [geometry,range] of introMechanisms) {
+      if (introProgress>=1) geometry.setDrawRange(range.start,range.count);
+      else {
+        const progress=THREE.MathUtils.clamp((introProgress-range.arrival)/(.97-range.arrival),0,1);
+        const available=Math.min(range.count,range.total-range.start);
+        geometry.setDrawRange(range.start,Math.floor(available*progress/2)*2);
+      }
+    }
+  }
+  function beginIntro() {
+    if (disposed) return;
+    if (modalRig.enabled) setModalMode(false);
+    resetAim(); active=false;
+    introMode=true; introTime=performance.now()/1000-idleTimeOffset;
+    currentRadius=null; driveYaw=-.13; targetYaw=-.13;
+    claw.rotation.y=0; forearmLink.setSleeveAdvance(0);
+    setIntroProgress(0);
+    // Present an empty drawing frame immediately, including on REBOOT.
+    renderHome(performance.now(),0,0);
+    technicalDrawing.prepareTrace(camera);
+    incomingTraces.begin();
+  }
+  function finishIntro() {
+    if (disposed) return;
+    setIntroProgress(1);
+    if (introMode) idleTimeOffset=performance.now()/1000-introTime;
+    introMode=false;
+    incomingTraces.finish();
+  }
   function setModalMode(value) {
     modalRig.setMode(value);
     if (!value) {
@@ -582,7 +641,7 @@ export async function createRobotScene(canvas, options = {}) {
     renderHome(now, dt, document.visibilityState === 'hidden' ? 0 : modalDt);
   }
   function renderHome(now, dt, wallDt, complete = false) {
-    const time = now / 1000;
+    const time = introMode ? introTime : now / 1000 - idleTimeOffset;
     fingers[0].rotation.z = -0.11 + (hovered || reducedMotion ? 0 : Math.sin(time * 0.8) * 0.035);
     fingers[1].rotation.z = 0.11 - (hovered || reducedMotion ? 0 : Math.sin(time * 0.8) * 0.035);
     internalClaw.update();
@@ -631,9 +690,18 @@ export async function createRobotScene(canvas, options = {}) {
   }
   const observer = new ResizeObserver(resize); observer.observe(canvas);
   resize();
+  if (options.intro) beginIntro();
   animate(performance.now());
   return {
     aimAt, resetAim, setActive, resize, beginTouchReach, endTouchReach, getHomeAimState, completeHomeAim,
+    beginIntro, setIntroProgress, finishIntro,
+    getIntroState() {
+      const pixel=contactAnchor.getWorldPosition(new THREE.Vector3()).project(camera);
+      return {active:introMode,progress:introProgress,reveal:technicalDrawing.revealProgress,
+        contactPixel:{x:(pixel.x+1)*width/2,y:(1-pixel.y)*height/2},
+        pose:{yaw:arm.rotation.y,shoulder:shoulder.rotation.z,elbow:elbow.rotation.z,wrist:wrist.rotation.z,l1:elbow.position.y,l2:wrist.position.y,drive:driveYaw},
+        viewport:{width,height},mechanisms:introMechanisms.size,incoming:incomingTraces.getState()};
+    },
     setModalMode, aimAtModal: modalRig.aimAt, resetModalAim: modalRig.resetAim, completeModalAim,
     updateModalLayout: modalRig.updateLayout,
     requestModalPress: modalRig.requestPress,
@@ -660,7 +728,7 @@ export async function createRobotScene(canvas, options = {}) {
     },
     dispose() {
       disposed = true; cancelAnimationFrame(frameId); observer.disconnect();
-      technicalDrawing.dispose(); mechanics.dispose(); mechanismMaterial.dispose();
+      incomingTraces.dispose(); technicalDrawing.dispose(); mechanics.dispose(); mechanismMaterial.dispose();
       allGeometries.forEach(g => g.dispose()); allTextures.forEach(t => t.dispose());
       technicalDrawing.replacedMaterials.forEach(material => {
         if (!Object.values(materials).includes(material)) material.dispose();

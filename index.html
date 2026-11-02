@@ -7,7 +7,7 @@
   <meta name="description" content="Systems Design Lab 系统设计实验室 — 在系统、物体与交互之间，探索新的连接。蓝橙机械臂互动空间。">
   <title>Systems Design Lab · 系统设计实验室</title>
   <link rel="icon" href="assets/tic-tac-toe.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css?v=35">
+  <link rel="stylesheet" href="styles.css?v=40">
 </head>
 <body class="booting">
   <main id="lab" class="lab">
@@ -27,13 +27,23 @@
     </nav>
   </main>
 
-  <dialog id="bootDialog" class="boot-dialog" aria-labelledby="bootTitle">
-    <div class="boot-top" aria-hidden="true"><span><i></i></span></div>
-    <div class="boot-content"><h2 id="bootTitle"><span id="typedEnglish"></span><span class="typing-cursor">_</span></h2><p class="boot-chinese"><span id="typedChinese"></span></p><div class="boot-console"><span id="bootLog">ESTABLISHING CONNECTION . . .</span><span id="bootPercent">00%</span></div><div class="boot-progress"><i id="bootProgress"></i></div><div class="boot-action"><div class="arcade-bezel"><button id="enterButton" class="arcade-button" aria-label="Enter Systems Design Lab / 进入系统设计实验室"><span>⏻</span></button></div><div class="enter-copy"><b>PRESS TO EXPLORE <span>↗</span></b><span>按下按钮，开启实验</span></div></div></div>
-    <div class="boot-bottom" aria-hidden="true"><span>&nbsp;</span></div>
+  <dialog id="bootDialog" class="boot-dialog intro-dialog" aria-labelledby="bootTitle" aria-describedby="introStatus" tabindex="-1">
+    <div class="intro-signature" aria-hidden="true"><img src="assets/tic-tac-toe.svg" alt=""><span>SDL / 001<br>AN OPEN EXPERIMENT</span></div>
+    <span class="intro-topline" aria-hidden="true">SYSTEMS / OBJECTS / INTERACTION</span>
+    <section class="intro-stream" aria-label="Live data visualization">
+      <div class="intro-stream-heading"><span><i></i><span id="introPhase">INCOMING DATA</span></span><span id="introCount">00000</span></div>
+      <div id="introData" class="intro-data" aria-hidden="true"></div>
+      <div class="intro-stream-footer"><span id="introStatus" role="status">LISTENING FOR CONNECTIONS</span><span id="introProgress" aria-hidden="true">00%</span></div>
+    </section>
+    <div class="intro-copy">
+      <p class="intro-kicker"><span aria-hidden="true">+</span> HUMAN IDEAS. MECHANICAL CURIOSITY.</p>
+      <h2 id="bootTitle"><span>SYSTEMS</span><span>DESIGN LAB</span></h2>
+      <div class="intro-enter-row"><button id="enterButton" class="intro-enter" aria-label="Enter Systems Design Lab / 进入系统设计实验室" disabled><span>Enter</span><span class="intro-enter-arrow" aria-hidden="true">↵</span></button><span class="intro-continue">To Continue</span></div>
+    </div>
+    <div class="intro-footnote" aria-hidden="true"><span>FROM DATA TO CONNECTIONS.</span><span>EXPLORATION BEGINS HERE <i>↗</i></span></div>
   </dialog>
 
   <dialog id="contentDialog" class="content-dialog" aria-labelledby="panelTitle"><div id="panelShell" class="panel-shell" tabindex="-1"><div class="panel-top"><span id="panelEyebrow"></span><button id="closePanel" class="close-panel" aria-label="Close panel / 关闭弹窗"><span class="close-icon" aria-hidden="true">✕</span><span class="close-shortcut">ESC</span></button></div><div id="panelContent" class="panel-content"></div><div class="panel-bottom"><span>SYSTEMS DESIGN LAB / EXPLORATION MODE</span><button id="nextPanel">NEXT CONNECTION <span>↗</span><small class="zh-copy">下一个连接</small></button></div></div></dialog>
-  <script type="module" src="app.js?v=38"></script>
+  <script type="module" src="app.js?v=42"></script>
 </body>
 </html>

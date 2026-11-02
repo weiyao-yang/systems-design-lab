@@ -8,6 +8,7 @@ export function createTechnicalDrawing(THREE, surfaces, options = {}) {
   const batches = new Map();
   const ownedGeometries = new Set();
   const lineObjects = [];
+  const traceFeeds = [];
   const replacedMaterials = new Set();
   const tolerance = options.weldTolerance ?? 1e-5;
   const defaultAngle = options.thresholdAngle ?? 22;
@@ -98,12 +99,15 @@ export function createTechnicalDrawing(THREE, surfaces, options = {}) {
     colorWrite: false, depthWrite: true, depthTest: true, side: THREE.DoubleSide,
     polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1,
   });
+  const revealUniform = { value: 1 };
   const vertexShader = `
     attribute vec3 adjacentNormalA;
     attribute vec3 adjacentNormalB;
     attribute vec3 edgeMidpoint;
     attribute float forceVisible;
+    attribute float traceProgress;
     varying float vVisible;
+    varying float vTraceProgress;
     void main() {
       vec3 midpointView = (modelViewMatrix * vec4(edgeMidpoint, 1.0)).xyz;
       vec3 viewDirection = normalize(-midpointView);
@@ -113,22 +117,25 @@ export function createTechnicalDrawing(THREE, surfaces, options = {}) {
       float facingB = dot(normalB, viewDirection);
       float contour = facingA * facingB <= 0.0 ? 1.0 : 0.0;
       vVisible = max(forceVisible, contour);
+      vTraceProgress = traceProgress;
       gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
     }
   `;
   const fragmentShader = `
     uniform vec3 inkColor;
     uniform float inkOpacity;
+    uniform float revealProgress;
     varying float vVisible;
+    varying float vTraceProgress;
     void main() {
-      if (vVisible < 0.5) discard;
+      if (vVisible < 0.5 || revealProgress <= 0.0 || vTraceProgress > revealProgress) discard;
       gl_FragColor = vec4(inkColor, inkOpacity);
       #include <colorspace_fragment>
     }
   `;
   function inkMaterial(opacity, depthTest, color = options.color ?? 0x165fc9) {
     return new THREE.ShaderMaterial({
-      uniforms: { inkColor: { value: new THREE.Color(color) }, inkOpacity: { value: opacity } },
+      uniforms: { inkColor: { value: new THREE.Color(color) }, inkOpacity: { value: opacity }, revealProgress: revealUniform },
       vertexShader, fragmentShader, transparent: true, depthTest, depthWrite: false, toneMapped: false,
     });
   }
@@ -177,33 +184,96 @@ export function createTechnicalDrawing(THREE, surfaces, options = {}) {
     object.material = depthMaterial; object.castShadow = false;
   }
 
-  for (const [owner, ownerBatches] of batches) for (const [role, batch] of ownerBatches) {
-    if (!batch.forced.length) continue;
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(batch.positions, 3));
-    geometry.setAttribute('adjacentNormalA', new THREE.Float32BufferAttribute(batch.normalA, 3));
-    geometry.setAttribute('adjacentNormalB', new THREE.Float32BufferAttribute(batch.normalB, 3));
-    geometry.setAttribute('edgeMidpoint', new THREE.Float32BufferAttribute(batch.midpoints, 3));
-    geometry.setAttribute('forceVisible', new THREE.Float32BufferAttribute(batch.forced, 1));
-    geometry.computeBoundingSphere(); ownedGeometries.add(geometry);
-    const passes = role === 'internal'
-      ? [['internal', internalMaterial, 20]]
-      : [['ghost', ghostMaterial, 10], ['primary', primaryMaterial, 30]];
-    for (const [name, material, order] of passes) {
-      const lines = new THREE.LineSegments(geometry, material);
-      lines.name = `technical-drawing-${name}`; lines.renderOrder = order; lines.castShadow = false;
-      lines.userData.technicalDrawing = true;
-      lines.userData.drawingRole = role;
-      owner.add(lines); lineObjects.push(lines);
-      if (role === 'internal') stats.internalLineDrawCalls++; else stats.shellLineDrawCalls++;
+  let ownerIndex = 0;
+  for (const [owner, ownerBatches] of batches) {
+    for (const [role, batch] of ownerBatches) {
+      if (!batch.forced.length) continue;
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(batch.positions, 3));
+      geometry.setAttribute('adjacentNormalA', new THREE.Float32BufferAttribute(batch.normalA, 3));
+      geometry.setAttribute('adjacentNormalB', new THREE.Float32BufferAttribute(batch.normalB, 3));
+      geometry.setAttribute('edgeMidpoint', new THREE.Float32BufferAttribute(batch.midpoints, 3));
+      geometry.setAttribute('forceVisible', new THREE.Float32BufferAttribute(batch.forced, 1));
+      geometry.setAttribute('traceProgress', new THREE.Float32BufferAttribute(new Float32Array(batch.positions.length / 3), 1));
+      geometry.computeBoundingSphere(); ownedGeometries.add(geometry);
+      traceFeeds.push({ owner, geometry, role, index: traceFeeds.length,
+        arrival: .18 + ownerIndex / Math.max(1, batches.size - 1) * .27 + (role === 'internal' ? .055 : 0),
+        point: new THREE.Vector3().fromArray(batch.positions),
+      });
+      const passes = role === 'internal'
+        ? [['internal', internalMaterial, 20]]
+        : [['ghost', ghostMaterial, 10], ['primary', primaryMaterial, 30]];
+      for (const [name, material, order] of passes) {
+        const lines = new THREE.LineSegments(geometry, material);
+        lines.name = `technical-drawing-${name}`; lines.renderOrder = order; lines.castShadow = false;
+        lines.userData.technicalDrawing = true;
+        lines.userData.drawingRole = role;
+        owner.add(lines); lineObjects.push(lines);
+        if (role === 'internal') stats.internalLineDrawCalls++; else stats.shellLineDrawCalls++;
+      }
     }
+    ownerIndex++;
   }
+  function updateTrace(feed) {
+    const positions = feed.geometry.attributes.position;
+    const trace = feed.geometry.attributes.traceProgress;
+    let maximumDistance = 0;
+    for (let i = 0; i < positions.count; i++) {
+      pointA.fromBufferAttribute(positions, i);
+      maximumDistance = Math.max(maximumDistance, pointA.distanceTo(feed.point));
+    }
+    // Incoming ink reaches one real contour first, then spreads continuously
+    // from that contact across the part. Adjacent vertices share the same
+    // spatial clock; no scattered, randomly appearing internal strokes.
+    const end = feed.role === 'internal' ? .96 : .90;
+    for (let i = 0; i < positions.count; i++) {
+      pointA.fromBufferAttribute(positions, i);
+      const distance = pointA.distanceTo(feed.point) / Math.max(1e-8, maximumDistance);
+      trace.setX(i, feed.arrival + distance * (end - feed.arrival));
+    }
+    trace.needsUpdate = true;
+  }
+  traceFeeds.forEach(updateTrace);
   stats.roots = batches.size;
   stats.lineDrawCalls = lineObjects.length;
   stats.drawCalls = stats.depthDrawCalls + stats.lineDrawCalls;
   let disposed = false;
   return {
     stats, replacedMaterials,
+    setReveal(progress) { revealUniform.value = THREE.MathUtils.clamp(Number(progress) || 0, 0, 1); },
+    get revealProgress() { return revealUniform.value; },
+    prepareTrace(camera) {
+      // Choose an outside-facing contour in the actual frozen homepage pose.
+      // Feeds from left/top/right/bottom land on the corresponding extremity.
+      const projected = new THREE.Vector3();
+      for (const feed of traceFeeds) {
+        feed.owner.updateWorldMatrix(true, false);
+        const positions = feed.geometry.attributes.position;
+        const forced = feed.geometry.attributes.forceVisible;
+        let best = -Infinity, bestIndex = 0;
+        for (let i = 0; i < positions.count; i++) {
+          if (forced.getX(i) < .5) continue;
+          projected.fromBufferAttribute(positions, i).applyMatrix4(feed.owner.matrixWorld).project(camera);
+          const side = feed.index % 4;
+          const score = side === 0 ? -projected.x : side === 1 ? projected.y : side === 2 ? projected.x : -projected.y;
+          if (score > best) { best = score; bestIndex = i; }
+        }
+        feed.point.fromBufferAttribute(positions, bestIndex);
+        updateTrace(feed);
+      }
+    },
+    getTraceAnchors() {
+      return traceFeeds.map(feed => ({index: feed.index, role: feed.role, arrival: feed.arrival,
+        point: feed.owner.localToWorld(feed.point.clone())}));
+    },
+    getTraceStart(object) {
+      for (let owner = object; owner; owner = owner.parent) {
+        const feed = traceFeeds.find(candidate => candidate.owner === owner && candidate.role === 'internal')
+          || traceFeeds.find(candidate => candidate.owner === owner);
+        if (feed) return feed.arrival;
+      }
+      return .45;
+    },
     dispose() {
       if (disposed) return; disposed = true;
       for (const lines of lineObjects) lines.removeFromParent();

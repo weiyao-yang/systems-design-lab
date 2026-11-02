@@ -10,6 +10,7 @@ export const websiteFiles = [
   'modal-rig.js',
   'modal-interaction.js',
   'robot-drawing.js',
+  'intro-traces.js',
   'robot-internals.js',
   'three.module.js',
   'THREE-LICENSE.txt',

@@ -1,4 +1,4 @@
-import { createRobotScene } from './robot.js?v=38';
+import { createRobotScene } from './robot.js?v=42';
 import { panels } from './content.js?v=5';
 import { createModalInteraction } from './modal-interaction.js?v=38';
 
@@ -8,7 +8,7 @@ const boot = $('#bootDialog');
 const dialog = $('#contentDialog');
 const tags = [...document.querySelectorAll('.orbit-tag')];
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
-let robot, soundOn = false, audio, activePanel = 0, typingToken = 0, lastTag;
+let robot, soundOn = false, audio, activePanel = 0, lastTag;
 const modalInteraction = createModalInteraction({ dialog, panel: $('#panelShell'), scene: $('#scene'), getRobot: () => robot });
 const homeInteraction = createHomeTagInteraction({
   root: lab, tags, canInteract: () => !dialog.open && !boot.open && !lab.inert,
@@ -30,54 +30,16 @@ function tone(freq = 420, duration = .07, volume = .025) {
   } catch {}
 }
 
-function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
-function setProgress(n) { $('#bootPercent').textContent = `${String(n).padStart(2,'0')}%`; $('#bootProgress').style.width = n + '%'; }
-async function typeOpening() {
-  const token = ++typingToken;
-  $('#typedEnglish').textContent = ''; $('#typedChinese').textContent = '';
-  $('#bootLog').textContent = 'ESTABLISHING CONNECTION . . .'; setProgress(0);
-  await sleep(reducedMotion ? 0 : 450);
-  const lines = [['#typedEnglish', 'Systems Design Lab'], ['#typedChinese', '系统设计实验室']];
-  let current = 0, total = 25;
-  for (const [selector, line] of lines) {
-    for (const c of line) {
-      if (token !== typingToken) return;
-      $(selector).textContent += c;
-      setProgress(Math.round(++current / total * 100));
-      if (!reducedMotion) await sleep(selector === '#typedEnglish' ? 63 : 105);
-    }
-    if (!reducedMotion) await sleep(170);
-  }
-  setProgress(100); $('#bootLog').textContent = 'CONNECTION ESTABLISHED. WELCOME TO THE LAB.';
-  boot.classList.add('ready'); $('#enterButton').disabled = false;
-}
+const opening = createOpeningSequence({ boot, lab, getRobot: () => robot, reducedMotion, playTone: tone });
 
 function showBoot() {
   homeInteraction.cancel();
   if (dialog.open) dialog.close();
   modalInteraction.close();
   document.body.classList.remove('modal-open');
-  document.body.classList.add('booting');
-  lab.inert = true;
-  boot.classList.remove('closing');
-  boot.classList.remove('ready'); $('#enterButton').disabled = true;
-  if (!boot.open) boot.showModal();
-  robot?.resetAim(); typeOpening();
+  robot?.resetAim();
+  opening.start();
 }
-
-async function enterLab() {
-  if (boot.classList.contains('closing')) return;
-  ++typingToken;
-  $('#typedEnglish').textContent = 'Systems Design Lab';
-  $('#typedChinese').textContent = '系统设计实验室'; setProgress(100);
-  tone(230, .18, .04); setTimeout(() => tone(620, .2), 100);
-  boot.classList.add('closing');
-  await sleep(reducedMotion ? 0 : 380);
-  boot.close(); document.body.classList.remove('booting'); lab.inert = false;
-  robot?.setActive(true); tags[0].focus({ preventScroll: true }); tags[0].blur();
-}
-$('#enterButton').addEventListener('click', enterLab);
-boot.addEventListener('cancel', e => { e.preventDefault(); enterLab(); });
 $('#reboot').addEventListener('click', showBoot);
 $('#soundToggle').addEventListener('click', () => {
   soundOn = !soundOn; $('#soundToggle').setAttribute('aria-pressed', String(soundOn));
@@ -157,8 +119,11 @@ function updateAim() {
   if (!aimFrame) aimFrame = requestAnimationFrame(() => { aimFrame = 0; updateAim(); });
 }
 showBoot();
-try { robot = await createRobotScene($('#robotCanvas'), { reducedMotion }); updateAim(); }
+// Paint the data stage before constructing the detailed mechanical model.
+await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+try { robot = await createRobotScene($('#robotCanvas'), { reducedMotion, intro: boot.open }); updateAim(); }
 catch (error) { console.warn('3D scene unavailable:', error); $('.scene-fallback').hidden = false; }
+finally { opening.robotReady(); }
 
 // Home taps retain their target until the real fingertip reaches the circle.
 // Mouse hover and keyboard activation keep their existing direct behavior.
@@ -271,5 +236,200 @@ export function createHomeTagInteraction({ root, tags, canInteract, getRobot, up
     get target() { return touch?.tag || hovered || focused; },
     cancel,
     destroy() { cancel(); listeners.forEach(remove => remove()); },
+  };
+}
+
+// The intro shares the homepage canvas: only its drawing progress changes.
+// Its data stream and text leave together; the model never changes containers.
+export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = false, playTone = () => {} }) {
+  const body = document.body, button = boot.querySelector('#enterButton');
+  const data = boot.querySelector('#introData'), status = boot.querySelector('#introStatus');
+  const count = boot.querySelector('#introCount'), phaseLabel = boot.querySelector('#introPhase');
+  const progressLabel = boot.querySelector('#introProgress');
+  const originalPadding = body.style.getPropertyValue('padding-right');
+  const originalPaddingPriority = body.style.getPropertyPriority('padding-right');
+  let running = false, resolved = false, phase = 'idle', generation = 0;
+  let frame = 0, streamFrame = 0, exitTimer = 0, started = 0, drawingStarted = null;
+  let streamCount = 0, progress = 0, skipRequested = false, reservedWidth = 0;
+  let streamRows = [], streamStep = 0, streamRowHeight = 18, streamHeight = 0;
+  const streamInterval = 55;
+  const vocabulary = ['RELATION', 'OBJECT', 'SIGNAL', 'VECTOR', 'NETWORK', 'FIELD', 'NODE', 'LINK'];
+
+  function restorePadding() {
+    if (originalPadding) body.style.setProperty('padding-right', originalPadding, originalPaddingPriority);
+    else body.style.removeProperty('padding-right');
+  }
+  function reserveHomeWidth() {
+    const leaving = body.classList.contains('intro-leaving');
+    restorePadding();
+    body.classList.remove('booting', 'intro-leaving');
+    const homeWidth = lab.getBoundingClientRect().width;
+    const homePadding = getComputedStyle(body).paddingRight || '0px';
+    body.classList.add('booting');
+    if (leaving) body.classList.add('intro-leaving');
+    reservedWidth = Math.max(0, lab.getBoundingClientRect().width - homeWidth);
+    if (reservedWidth > .5) body.style.setProperty('padding-right', `calc(${homePadding} + ${reservedWidth}px)`, originalPaddingPriority);
+  }
+  function setPhase(next, label) {
+    phase = next; boot.dataset.introStage = next;
+    if (phaseLabel) phaseLabel.textContent = label;
+  }
+  function setProgress(value) {
+    progress = Math.min(1, Math.max(0, value));
+    getRobot()?.setIntroProgress?.(progress);
+    if (progressLabel) progressLabel.textContent = `${String(Math.round(progress * 100)).padStart(2, '0')}%`;
+  }
+  function measureData() {
+    const compact = window.innerWidth <= 700 || window.innerHeight <= 560;
+    streamRowHeight = Number.parseFloat(getComputedStyle(data).getPropertyValue?.('--intro-row-height')) || (compact ? 13 : window.innerWidth >= 1800 ? 21 : 18);
+    streamHeight = data.clientHeight || data.getBoundingClientRect?.().height || Math.min(streamRowHeight * 17, window.innerHeight * (window.innerWidth <= 700 ? .12 : .36));
+  }
+  function renderData(now) {
+    for (const [index, entry] of streamRows.entries()) {
+      const y = reducedMotion ? index * streamRowHeight : streamHeight - (now - entry.born) / streamInterval * streamRowHeight;
+      if (entry.row.style) entry.row.style.transform = `translate3d(0,${y.toFixed(3)}px,0)`;
+    }
+  }
+  function appendData(born) {
+    const row = document.createElement('div'); row.className = 'intro-data-row';
+    const index = document.createElement('span'); index.className = 'intro-data-index';
+    const value = document.createElement('span'); value.className = 'intro-data-value';
+    const tag = document.createElement('span'); tag.className = 'intro-data-tag';
+    streamCount++;
+    if (streamCount % 4 === 0) row.classList.add('is-accent');
+    if (streamCount % 5 === 0) row.classList.add('is-muted');
+    const word = vocabulary[streamCount % vocabulary.length];
+    index.textContent = String(streamCount).padStart(4, '0');
+    value.textContent = `${word}_${String((streamCount * 37) % 997).padStart(3, '0')}  ${(Math.sin(streamCount * 1.73) * .5 + .5).toFixed(4)}`;
+    tag.textContent = streamCount % 3 === 0 ? 'CONNECTED' : streamCount % 3 === 1 ? 'MAPPING' : 'RESOLVED';
+    row.append(index, value, tag); data.append(row);
+    streamRows.push({ row, born });
+    while (streamRows.length > 18) streamRows.shift().row.remove();
+    if (count) count.textContent = String(streamCount).padStart(6, '0');
+  }
+  function scrollData(now) {
+    streamFrame = 0;
+    if (!running || phase === 'leaving') return;
+    const nextStep = Math.floor(Math.max(0, now - started) / streamInterval);
+    // A background tab may miss many samples; retain only the visible tail.
+    if (nextStep - streamStep > 18) {
+      streamCount += nextStep - streamStep - 18;
+      streamStep = nextStep - 18;
+      streamRows = []; data.replaceChildren();
+    }
+    while (streamStep < nextStep) {
+      streamStep++;
+      appendData(started + streamStep * streamInterval);
+    }
+    renderData(now);
+    streamFrame = requestAnimationFrame(scrollData);
+  }
+  function stopWork() {
+    cancelAnimationFrame(frame); frame = 0;
+    cancelAnimationFrame(streamFrame); streamFrame = 0;
+    clearTimeout(exitTimer); exitTimer = 0;
+  }
+  function ready() {
+    if (!running || phase === 'leaving' || phase === 'ready') return;
+    cancelAnimationFrame(frame); frame = 0;
+    setProgress(1); setPhase('ready', 'SYSTEM READY');
+    status.textContent = 'CONNECTION ESTABLISHED';
+    boot.classList.add('ready'); boot.setAttribute('aria-busy', 'false');
+    button.disabled = false;
+    button.focus({ preventScroll: true });
+  }
+  function tick(now) {
+    frame = 0;
+    if (!running || phase === 'leaving' || phase === 'ready') return;
+    if (resolved && (reducedMotion || skipRequested)) { ready(); return; }
+    if (resolved && now - started >= 1000) {
+      if (!getRobot()) { ready(); return; }
+      if (drawingStarted === null) {
+        drawingStarted = now; setPhase('drawing', 'TRACING SDL—01');
+        status.textContent = 'CONNECTING SYSTEMS. FORMING IDEAS.';
+      }
+      setProgress((now - drawingStarted) / 4200);
+      if (progress >= 1) { ready(); return; }
+    }
+    frame = requestAnimationFrame(tick);
+  }
+  function start() {
+    generation++; stopWork(); running = true; skipRequested = false;
+    drawingStarted = null; streamCount = 0; streamStep = 0; streamRows = []; started = performance.now();
+    boot.classList.remove('closing', 'ready'); body.classList.remove('intro-leaving');
+    reserveHomeWidth(); lab.inert = true;
+    lab.setAttribute('tabindex', '-1'); boot.setAttribute('tabindex', '-1');
+    boot.setAttribute('aria-busy', 'true'); button.disabled = true;
+    data.replaceChildren(); setPhase('data', 'RECEIVING INPUT');
+    status.textContent = 'COLLECTING SIGNALS. FINDING CONNECTIONS.';
+    if (!boot.open) boot.show();
+    getRobot()?.beginIntro?.(); setProgress(0);
+    measureData();
+    const initialRows = reducedMotion ? 3 : 6;
+    for (let i = 0; i < initialRows; i++) appendData(started - (initialRows - i - 1) * streamInterval);
+    renderData(started);
+    if (!reducedMotion) streamFrame = requestAnimationFrame(scrollData);
+    boot.focus({ preventScroll: true });
+    frame = requestAnimationFrame(tick);
+  }
+  function enter() {
+    if (!running || phase !== 'ready' || !boot.open) return false;
+    const token = ++generation;
+    stopWork(); setPhase('leaving', 'WELCOME TO THE LAB');
+    boot.classList.add('closing'); body.classList.add('intro-leaving');
+    playTone(430, .14, .03);
+    exitTimer = setTimeout(() => {
+      exitTimer = 0;
+      if (!running || token !== generation) return;
+      boot.close();
+      body.classList.remove('booting', 'intro-leaving'); restorePadding();
+      lab.inert = false; running = false; setPhase('home', 'SYSTEM ONLINE');
+      getRobot()?.finishIntro?.(); getRobot()?.setActive?.(true);
+      lab.focus({ preventScroll: true });
+    }, reducedMotion ? 100 : 720);
+    return true;
+  }
+  function skip() {
+    if (!running || phase === 'leaving') return;
+    if (phase === 'ready') { enter(); return; }
+    skipRequested = true;
+    if (resolved) ready();
+  }
+  function onKey(event) {
+    if (!running || !boot.open) return;
+    if (event.key === 'Enter') { event.preventDefault(); if (!event.repeat) enter(); }
+    else if (event.key === 'Escape') { event.preventDefault(); if (!event.repeat) skip(); }
+    else if (event.key === 'Tab') {
+      event.preventDefault(); (button.disabled ? boot : button).focus({ preventScroll: true });
+    }
+  }
+  const onCancel = event => { event.preventDefault(); skip(); };
+  const onResize = () => {
+    if (running && boot.open) {
+      reserveHomeWidth(); measureData(); renderData(performance.now());
+    }
+  };
+  button.addEventListener('click', enter);
+  boot.addEventListener('cancel', onCancel);
+  document.addEventListener('keydown', onKey);
+  window.addEventListener('resize', onResize);
+  return {
+    start, enter, skip,
+    robotReady() {
+      if (resolved) return;
+      resolved = true;
+      if (running && phase !== 'leaving' && phase !== 'ready') {
+        getRobot()?.beginIntro?.(); setProgress(0);
+        if (reducedMotion || skipRequested) ready();
+      }
+    },
+    getState() { return { phase, progress, running, streamCount, rowCount: data.childElementCount, reservedWidth }; },
+    destroy() {
+      generation++; stopWork(); running = false;
+      button.removeEventListener('click', enter); boot.removeEventListener('cancel', onCancel);
+      document.removeEventListener('keydown', onKey); window.removeEventListener('resize', onResize);
+      if (boot.open) boot.close(); body.classList.remove('booting', 'intro-leaving');
+      restorePadding(); lab.inert = false; getRobot()?.finishIntro?.();
+    },
   };
 }
