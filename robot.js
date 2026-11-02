@@ -1,7 +1,7 @@
 import * as THREE from './three.module.js';
 import { createTechnicalDrawing } from './robot-drawing.js?v=27';
 import { createMechanicalInternals } from './robot-internals.js?v=27';
-import { createModalRig } from './modal-rig.js?v=37';
+import { createModalRig } from './modal-rig.js?v=38';
 
 const ARM = { upper: 1.52, lower: 1.36, shoulderY: -0.58, tool: 0.96 };
 
@@ -360,6 +360,10 @@ export async function createRobotScene(canvas, options = {}) {
     // Width grows independently of link length, so the IK stays exact.
     const holder = parent;
     const armor = new THREE.Group(); parent.add(armor); armor.scale.z = depthScale; parent = armor;
+    // The forearm's telescoping sleeve can follow the tool during its compact
+    // dialog reach. Its drawing batch must follow the same articulated owner.
+    if (number === '02') armor.userData.drawingRoot = true;
+    let actualLength = length, sleeveAdvance = 0;
     internal(box(parent, wide * 0.53, length - 0.22, 0.32, 'navy', 0, length / 2, 0, 0.05), 'link-inner-spine');
     box(parent, wide, length - 0.34, 0.43, primary, 0, length / 2, 0.015, 0.048);
     box(parent, wide * 0.65, length - 0.47, 0.043, 'blueLight', -wide * 0.065, length / 2 + 0.01, 0.259, 0.014);
@@ -385,7 +389,13 @@ export async function createRobotScene(canvas, options = {}) {
     for (const object of [...rails, core, cuff]) object.userData.drawingRoot = true;
     const internalLink = mechanics.link(holder, length, wide, depthScale);
     return {
+      setSleeveAdvance(amount) {
+        sleeveAdvance = THREE.MathUtils.clamp(amount, 0, 1);
+        armor.position.y = Math.max(0, actualLength - length) * sleeveAdvance;
+      },
       setLength(actual) {
+        actualLength = actual;
+        armor.position.y = Math.max(0, actual - length) * sleeveAdvance;
         const railLength = Math.max(0.04, actual - 0.16 - railRoot);
         for (const object of [...rails, core]) {
           object.scale.y = railLength;
@@ -462,6 +472,11 @@ export async function createRobotScene(canvas, options = {}) {
   const modalRig = createModalRig(THREE, {
     camera, scene, renderer, arm, shoulder, elbow, wrist, upperLink, forearmLink,
     shoulderTransmission, contactAnchor, reducedMotion,
+    prepareContact(spec) {
+      claw.rotation.y = spec?.mobileNext ? THREE.MathUtils.degToRad(35) : 0;
+      forearmLink.setSleeveAdvance(spec?.mobileNext ? 1 : 0);
+      return measureContactOffset();
+    },
     getViewport: () => ({ width, height }),
   });
 
@@ -621,6 +636,7 @@ export async function createRobotScene(canvas, options = {}) {
     aimAt, resetAim, setActive, resize, beginTouchReach, endTouchReach, getHomeAimState, completeHomeAim,
     setModalMode, aimAtModal: modalRig.aimAt, resetModalAim: modalRig.resetAim, completeModalAim,
     updateModalLayout: modalRig.updateLayout,
+    requestModalPress: modalRig.requestPress,
     getModalState: modalRig.getState,
     getSizeDiagnostics() {
       const projection = camera.projectionMatrix.elements;

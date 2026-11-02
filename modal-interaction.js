@@ -3,6 +3,7 @@ export function modalControlSpec(kind, panel, band, icon, viewport) {
   const x = icon.left + icon.width / 2, y = icon.top + icon.height / 2;
   return {
     kind,
+    mobileNext: kind === 'next' && viewport.width <= 700,
     target: { x, y },
     panel: { left: panel.left, right: panel.right, top: panel.top, bottom: panel.bottom },
     gate: {
@@ -33,7 +34,14 @@ export function createModalInteraction({ dialog, panel, scene, getRobot }) {
   function specFor(kind) {
     const icon = kind === 'close' ? closeButton.querySelector('.close-icon') : nextButton.querySelector('span');
     const band = dialog.querySelector(kind === 'close' ? '.panel-top' : '.panel-bottom');
-    return modalControlSpec(kind, panel.getBoundingClientRect(), band.getBoundingClientRect(), icon.getBoundingClientRect(), viewport());
+    const size = viewport();
+    const spec = modalControlSpec(kind, panel.getBoundingClientRect(), band.getBoundingClientRect(), icon.getBoundingClientRect(), size);
+    // A landscape phone keeps its compact reach while that touch target
+    // withdraws, even if a later gesture has already selected the close icon.
+    if (kind === 'next' && Math.min(size.width, size.height) <= 700) {
+      spec.mobileNext ||= touch?.kind === kind || getRobot()?.getModalState()?.mobileNext === true;
+    }
+    return spec;
   }
   function hideScene() {
     scene.style.opacity = '0';
@@ -110,6 +118,8 @@ export function createModalInteraction({ dialog, panel, scene, getRobot }) {
     hovered = null; focused = null;
     const queued = { kind };
     activation = queued;
+    const mobileNext = kind === 'next' && specFor(kind).mobileNext;
+    const contactDwell = mobileNext ? 40 : 45;
     let settledAt = null;
     function finish() {
       if (activation !== queued) return;
@@ -123,11 +133,14 @@ export function createModalInteraction({ dialog, panel, scene, getRobot }) {
       const atControl = state?.kind === kind && state.phase === 'hold' && state.visible;
       if (atControl) {
         settledAt ??= performance.now();
-        if (performance.now() - settledAt >= 45) { finish(); return; }
+        if (performance.now() - settledAt >= contactDwell) { finish(); return; }
       } else settledAt = null;
       activationFrame = requestAnimationFrame(waitForContact);
     }
     refresh();
+    // Reaching starts at pointerdown. Only a valid released click may request
+    // the final physical press; a long hold stays at the precontact pose.
+    if (mobileNext) getRobot()?.requestModalPress?.(specFor(kind));
     activationFrame = requestAnimationFrame(waitForContact);
     // A cold/slow frame still gets a real contact frame before navigation.
     activationTimer = setTimeout(() => {
@@ -137,7 +150,7 @@ export function createModalInteraction({ dialog, panel, scene, getRobot }) {
       catch { finish(); return; }
       if (completed) {
         settledAt = performance.now();
-        activationTimer = setTimeout(finish, 60);
+        activationTimer = setTimeout(finish, mobileNext ? 40 : 60);
       } else finish();
     }, 650);
   }
@@ -203,6 +216,12 @@ export function createModalInteraction({ dialog, panel, scene, getRobot }) {
     listen(button, 'pointerdown', event => {
       if (!active || event.pointerType !== 'touch' || event.isPrimary === false) return;
       cancelTouch();
+      // Every new touch needs its own released click. Retire an earlier
+      // compact press before re-aiming, including same-button double taps.
+      if (kind === 'next') {
+        const robot = getRobot();
+        if (robot?.getModalState()?.mobileNext) robot.resetModalAim();
+      }
       cancelledKind = null;
       settlePanelEntrance();
       touch = { kind, pointerId: event.pointerId, x: event.clientX, y: event.clientY };
