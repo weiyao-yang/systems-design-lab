@@ -477,7 +477,7 @@ export async function createRobotScene(canvas, options = {}) {
   let currentRadius = null, currentAzimuth = 0, currentHeight = 0, currentPhi = 0;
   let touchReach = null;
   let introMode = false, introProgress = 1, introTime = 0, idleTimeOffset = 0;
-  let introFrozen = false, introDirty = true, introDepth = null;
+  let introFrozen = false, introInteractive = false, introDirty = true, introDepth = null, introRestBounds = null;
   const homeMatrixWorldAutoUpdate = scene.matrixWorldAutoUpdate;
   const introDepthSources = drawingSurfaces.filter(object => object.isMesh && object.material?.colorWrite === false);
 
@@ -547,13 +547,28 @@ export async function createRobotScene(canvas, options = {}) {
   }
   function syncIntroCopy() {
     if ((window.innerWidth || width) > 700 || !introHost?.style?.setProperty) return;
-    const bounds = technicalDrawing.getTraceBounds();
+    const bounds = introRestBounds || technicalDrawing.getTraceBounds();
     if (!Number.isFinite(bounds?.minY)) return;
     const rect = canvas.getBoundingClientRect(), viewport = getIntroViewport();
     // Measure the frozen drawing, including the wheels, rather than guessing
     // from the viewport height. This never moves or scales the live machine.
     const bottom = (rect.top || 0) - viewport.top + (1 - bounds.minY) * rect.height / 2;
     introHost.style.setProperty('--intro-robot-bottom', `${bottom}px`);
+  }
+  function projectIntroRestBounds() {
+    // The frozen depth batch already holds the original rest pose in world
+    // coordinates. Project that pose on resize, even while the live arm reaches
+    // toward Enter, so the mobile title never follows its moving fingertips.
+    const positions = introDepth?.geometry.attributes.position;
+    if (!positions) return;
+    const point = new THREE.Vector3();
+    const bounds = {minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity};
+    for (let i = 0; i < positions.count; i++) {
+      point.fromBufferAttribute(positions, i).project(camera);
+      bounds.minX = Math.min(bounds.minX, point.x); bounds.maxX = Math.max(bounds.maxX, point.x);
+      bounds.minY = Math.min(bounds.minY, point.y); bounds.maxY = Math.max(bounds.maxY, point.y);
+    }
+    introRestBounds = bounds;
   }
   const incomingTraces = createIncomingTraces({
     host: introHost, reducedMotion,
@@ -617,7 +632,14 @@ export async function createRobotScene(canvas, options = {}) {
     camera.updateMatrixWorld();
     renderer.setSize(width, height, false);
     if (requestedScreen) requestedContact = mapRobotTarget(requestedScreen.x, requestedScreen.y, camera);
-    if (introMode) { technicalDrawing.prepareTrace(camera); syncIntroCopy(); incomingTraces.resize(); introDirty = true; }
+    if (introMode) {
+      if (introProgress === 1 && !introFrozen) projectIntroRestBounds();
+      else {
+        technicalDrawing.prepareTrace(camera); introRestBounds=technicalDrawing.getTraceBounds();
+        incomingTraces.resize();
+      }
+      syncIntroCopy(); introDirty = true;
+    }
   }
   function syncIntroViewport() {
     if (disposed || !introMode || introViewportFrame) return;
@@ -629,6 +651,7 @@ export async function createRobotScene(canvas, options = {}) {
     });
   }
   function aimAt(nx, ny) {
+    if (introMode && !introInteractive) return;
     requestedScreen = { x: nx, y: ny };
     requestedContact = mapRobotTarget(nx, ny, camera);
     hovered = true;
@@ -648,7 +671,7 @@ export async function createRobotScene(canvas, options = {}) {
       errorPixels: targetPixel ? Math.hypot(contactPixel.x - targetPixel.x, contactPixel.y - targetPixel.y) : null };
   }
   function completeHomeAim() {
-    if (modalRig.enabled || !touchReach || !requestedContact) return false;
+    if (modalRig.enabled || (introMode && !introInteractive) || !touchReach || !requestedContact) return false;
     renderHome(performance.now(), 0, 0, true);
     return getHomeAimState().errorPixels < 1;
   }
@@ -673,9 +696,9 @@ export async function createRobotScene(canvas, options = {}) {
     if (disposed) return;
     // Construction and the opening controller can both report readiness.
     // Reusing the already-empty frame avoids building the same frozen pose twice.
-    if (introMode && introProgress===0) return;
+    if (introMode && introProgress===0 && introFrozen) { introInteractive=false; resetAim(); return; }
     releaseIntroDepth(); scene.matrixWorldAutoUpdate=homeMatrixWorldAutoUpdate;
-    introFrozen=false;
+    introFrozen=false; introInteractive=false; introRestBounds=null;
     if (modalRig.enabled) setModalMode(false);
     resetAim(); active=false;
     introMode=true; introTime=performance.now()/1000-idleTimeOffset;
@@ -686,10 +709,25 @@ export async function createRobotScene(canvas, options = {}) {
     renderHome(performance.now(),0,0);
     prepareIntroDepth();
     technicalDrawing.prepareTrace(camera);
+    introRestBounds=technicalDrawing.getTraceBounds();
     syncIntroCopy();
     incomingTraces.begin();
     introFrozen=true; introDirty=true;
     scene.matrixWorldAutoUpdate=false;
+  }
+  function setIntroInteractive(value = true) {
+    const enabled = Boolean(value);
+    if (disposed || !introMode || (enabled && introProgress < 1)) return false;
+    if (enabled === introInteractive) return true;
+    introInteractive=enabled;
+    if (enabled) {
+      // Reuse the live contact solver without advancing the opening's idle
+      // clock or replacing its pose. Moving joints need their original depth
+      // meshes and world-matrix updates instead of the frozen depth batch.
+      releaseIntroDepth(); scene.matrixWorldAutoUpdate=homeMatrixWorldAutoUpdate;
+      introFrozen=false; introDirty=true;
+    } else resetAim();
+    return true;
   }
   function finishIntro() {
     if (disposed) return;
@@ -698,7 +736,7 @@ export async function createRobotScene(canvas, options = {}) {
     if (introMode && introDirty) { renderer.render(scene,camera); introDirty=false; }
     if (introMode) idleTimeOffset=performance.now()/1000-introTime;
     releaseIntroDepth(); scene.matrixWorldAutoUpdate=homeMatrixWorldAutoUpdate;
-    introFrozen=false; introMode=false;
+    introFrozen=false; introInteractive=false; introMode=false;
     incomingTraces.finish();
   }
   function setModalMode(value) {
@@ -822,10 +860,10 @@ export async function createRobotScene(canvas, options = {}) {
   animate(performance.now());
   return {
     aimAt, resetAim, setActive, resize, beginTouchReach, endTouchReach, getHomeAimState, completeHomeAim,
-    beginIntro, setIntroProgress, finishIntro,
+    beginIntro, setIntroProgress, setIntroInteractive, finishIntro,
     getIntroState() {
       const pixel=contactAnchor.getWorldPosition(new THREE.Vector3()).project(camera);
-      return {active:introMode,progress:introProgress,reveal:technicalDrawing.revealProgress,
+      return {active:introMode,interactive:introInteractive,progress:introProgress,reveal:technicalDrawing.revealProgress,
         contactPixel:{x:(pixel.x+1)*width/2,y:(1-pixel.y)*height/2},
         pose:{yaw:arm.rotation.y,shoulder:shoulder.rotation.z,elbow:elbow.rotation.z,wrist:wrist.rotation.z,l1:elbow.position.y,l2:wrist.position.y,drive:driveYaw},
         viewport:{width,height},mechanisms:introMechanisms.size,incoming:incomingTraces.getState(),

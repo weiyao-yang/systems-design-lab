@@ -126,7 +126,7 @@ showBoot();
 await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 initialCover?.remove();
 try {
-  const { createRobotScene } = await import('./robot.js?v=47');
+  const { createRobotScene } = await import('./robot.js?v=50');
   robot = await createRobotScene($('#robotCanvas'), { reducedMotion, intro: boot.open }); updateAim();
 }
 catch (error) { console.warn('3D scene unavailable:', error); $('.scene-fallback').hidden = false; }
@@ -134,7 +134,7 @@ finally { opening.robotReady(); }
 
 // Home taps retain their target until the real fingertip reaches the circle.
 // Mouse hover and keyboard activation keep their existing direct behavior.
-export function createHomeTagInteraction({ root, tags, canInteract, getRobot, updateAim, open, reducedMotion = false }) {
+export function createHomeTagInteraction({ root, tags, canInteract, getRobot, updateAim, open, reducedMotion = false, acceptFocus = () => true }) {
   let hovered = null, focused = null, touch = null, cancelledTag = null, activation = null;
   let actionFrame = 0, actionTimer = 0, releaseTimer = 0;
   const listeners = [];
@@ -215,7 +215,7 @@ export function createHomeTagInteraction({ root, tags, canInteract, getRobot, up
       if (hovered === tag) hovered = null;
       updateAim();
     });
-    listen(tag, 'focus', () => { if (!touch && canInteract()) { focused = tag; updateAim(); } });
+    listen(tag, 'focus', () => { if (!touch && canInteract() && acceptFocus(tag)) { focused = tag; updateAim(); } });
     listen(tag, 'blur', () => { if (focused === tag) focused = null; updateAim(); });
     listen(tag, 'pointerdown', event => {
       if (event.pointerType === 'touch' && event.isPrimary !== false && canInteract()) startTouch(tag, event);
@@ -241,6 +241,8 @@ export function createHomeTagInteraction({ root, tags, canInteract, getRobot, up
   listen(window, 'resize', () => { if (touch) rejectTouch(); });
   return {
     get target() { return touch?.tag || hovered || focused; },
+    activate,
+    focus(tag) { focused = tag && canInteract() ? tag : null; updateAim(); },
     cancel,
     destroy() { cancel(); listeners.forEach(remove => remove()); },
   };
@@ -261,6 +263,31 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
   let streamRows = [], streamStep = 0, streamRowHeight = 18, streamHeight = 0;
   const streamInterval = 55;
   const vocabulary = ['RELATION', 'OBJECT', 'SIGNAL', 'VECTOR', 'NETWORK', 'FIELD', 'NODE', 'LINK'];
+  const canvas = lab.querySelector?.('#robotCanvas');
+  let enterFrame = 0, keyboardEnterFocus = false;
+  function aimAtEnter() {
+    const bounds = canvas?.getBoundingClientRect(), target = button.getBoundingClientRect();
+    if (!bounds || bounds.width <= 0 || bounds.height <= 0) return;
+    getRobot()?.aimAt?.((target.left + target.width / 2 - bounds.left) / bounds.width,
+      (target.top + target.height / 2 - bounds.top) / bounds.height);
+  }
+  function updateEnterAim() {
+    cancelAnimationFrame(enterFrame); enterFrame = 0;
+    // Keep the same contact while the Enter control fades into the homepage.
+    if (phase === 'leaving') return;
+    if (!running || phase !== 'ready' || !boot.open || !enterInteraction.target) {
+      getRobot()?.resetAim?.(); return;
+    }
+    aimAtEnter();
+    enterFrame = requestAnimationFrame(() => { enterFrame = 0; updateEnterAim(); });
+  }
+  const enterInteraction = createHomeTagInteraction({
+    root: boot, tags: [button], getRobot, updateAim: updateEnterAim, reducedMotion,
+    canInteract: () => running && phase === 'ready' && boot.open,
+    acceptFocus: () => keyboardEnterFocus,
+    open: () => enter(),
+  });
+  const onEnterPointer = () => { keyboardEnterFocus = false; enterInteraction.focus(null); };
 
   function restorePadding() {
     if (originalPadding) body.style.setProperty('padding-right', originalPadding, originalPaddingPriority);
@@ -337,6 +364,7 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
     streamFrame = requestAnimationFrame(scrollData);
   }
   function stopWork() {
+    cancelAnimationFrame(enterFrame); enterFrame = 0;
     cancelAnimationFrame(frame); frame = 0;
     cancelAnimationFrame(streamFrame); streamFrame = 0;
     clearTimeout(exitTimer); exitTimer = 0;
@@ -345,9 +373,11 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
     if (!running || phase === 'leaving' || phase === 'ready') return;
     cancelAnimationFrame(frame); frame = 0;
     setProgress(1); setPhase('ready', 'SYSTEM READY');
+    getRobot()?.setIntroInteractive?.(true);
     status.textContent = 'CONNECTION ESTABLISHED';
     boot.classList.add('ready'); boot.setAttribute('aria-busy', 'false');
     button.disabled = false;
+    keyboardEnterFocus = false;
     button.focus({ preventScroll: true });
   }
   function tick(now) {
@@ -374,6 +404,8 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
     lab.setAttribute('tabindex', '-1'); boot.setAttribute('tabindex', '-1');
     boot.setAttribute('aria-busy', 'true'); button.disabled = true;
     data.replaceChildren(); setPhase('data', 'RECEIVING INPUT');
+    keyboardEnterFocus = false; enterInteraction.cancel();
+    getRobot()?.setIntroInteractive?.(false);
     status.textContent = 'COLLECTING SIGNALS. FINDING CONNECTIONS.';
     if (!boot.open) boot.show();
     getRobot()?.beginIntro?.(); setProgress(0);
@@ -390,6 +422,7 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
     if (!running || phase !== 'ready' || !boot.open) return false;
     const token = ++generation;
     stopWork(); setPhase('leaving', 'WELCOME TO THE LAB');
+    enterInteraction.cancel(); aimAtEnter();
     document.documentElement?.classList.remove('opening-active');
     boot.classList.add('closing'); body.classList.add('intro-leaving');
     playTone(430, .14, .03);
@@ -399,6 +432,7 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
       boot.close();
       body.classList.remove('booting', 'intro-leaving'); restorePadding();
       lab.inert = false; running = false; setPhase('home', 'SYSTEM ONLINE');
+      enterInteraction.cancel(); getRobot()?.resetAim?.();
       getRobot()?.finishIntro?.(); getRobot()?.setActive?.(true);
       lab.focus({ preventScroll: true });
     }, reducedMotion ? 100 : 720);
@@ -412,19 +446,22 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
   }
   function onKey(event) {
     if (!running || !boot.open) return;
-    if (event.key === 'Enter') { event.preventDefault(); if (!event.repeat) enter(); }
+    if (event.key === 'Enter') { event.preventDefault(); if (!event.repeat) enterInteraction.activate(button, event); }
     else if (event.key === 'Escape') { event.preventDefault(); if (!event.repeat) skip(); }
     else if (event.key === 'Tab') {
-      event.preventDefault(); (button.disabled ? boot : button).focus({ preventScroll: true });
+      event.preventDefault();
+      if (button.disabled) boot.focus({ preventScroll: true });
+      else { keyboardEnterFocus = true; button.focus({ preventScroll: true }); enterInteraction.focus(button); }
     }
   }
   const onCancel = event => { event.preventDefault(); skip(); };
   const onResize = () => {
     if (running && boot.open) {
       reserveHomeWidth(); getRobot()?.resize?.(); measureData(); renderData(performance.now());
+      if (phase === 'leaving') aimAtEnter(); else updateEnterAim();
     }
   };
-  button.addEventListener('click', enter);
+  button.addEventListener('pointerdown', onEnterPointer);
   boot.addEventListener('cancel', onCancel);
   document.addEventListener('keydown', onKey);
   window.addEventListener('resize', onResize);
@@ -442,7 +479,8 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
     getState() { return { phase, progress, running, streamCount, rowCount: data.childElementCount, reservedWidth }; },
     destroy() {
       generation++; stopWork(); running = false;
-      button.removeEventListener('click', enter); boot.removeEventListener('cancel', onCancel);
+      button.removeEventListener('pointerdown', onEnterPointer); boot.removeEventListener('cancel', onCancel);
+      enterInteraction.destroy(); getRobot()?.setIntroInteractive?.(false);
       document.removeEventListener('keydown', onKey); window.removeEventListener('resize', onResize);
       if (boot.open) boot.close(); body.classList.remove('booting', 'intro-leaving');
       document.documentElement?.classList.remove('opening-active');
