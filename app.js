@@ -1,5 +1,5 @@
 import { panels } from './content.js?v=5';
-import { createModalInteraction } from './modal-interaction.js?v=38';
+import { createModalInteraction } from './modal-interaction.js?v=53';
 import { createTitleGuides } from './intro-title-guides.js?v=47';
 
 const $ = s => document.querySelector(s);
@@ -50,6 +50,7 @@ $('#soundToggle').addEventListener('click', () => {
 function showPanel(id) {
   const index = panels.findIndex(p => p.id === id);
   if (index < 0) return;
+  modalInteraction.prepare();
   homeInteraction.cancel();
   activePanel = index;
   const p = panels[index];
@@ -127,7 +128,7 @@ showBoot();
 await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 initialCover?.remove();
 try {
-  const { createRobotScene } = await import('./robot.js?v=50');
+  const { createRobotScene } = await import('./robot.js?v=53');
   robot = await createRobotScene($('#robotCanvas'), { reducedMotion, intro: boot.open }); updateAim();
 }
 catch (error) { console.warn('3D scene unavailable:', error); $('.scene-fallback').hidden = false; }

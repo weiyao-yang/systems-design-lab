@@ -757,6 +757,49 @@ export async function createRobotScene(canvas, options = {}) {
     if (value) modalRig.render();
   }
 
+  function renderHomeFrame() {
+    if (disposed || modalRig.enabled) return false;
+    // Present the existing pose without advancing its IK or idle clock.
+    renderer.render(scene, camera);
+    return true;
+  }
+  function captureHomeFrame(target) {
+    if (disposed || modalRig.enabled || !target?.getContext) return null;
+    try {
+      const context = target.getContext('2d');
+      if (!context || !(canvas.width > 0 && canvas.height > 0)) return null;
+      target.width = canvas.width; target.height = canvas.height;
+      // Default WebGL drawing buffers may be discarded after compositing.
+      // Render and copy in this same synchronous call, before modal mode clears it.
+      renderer.render(scene, camera);
+      context.clearRect(0, 0, target.width, target.height);
+      context.drawImage(canvas, 0, 0);
+      const projection = camera.projectionMatrix.elements;
+      return { width, height, projection: [projection[0], projection[5], projection[8], projection[9]] };
+    } catch { return null; }
+  }
+  function getHomeFrameTransform(metadata, { width: nextWidth, height: nextHeight } = {}) {
+    if (disposed || !metadata || !(metadata.width > 0 && metadata.height > 0 && nextWidth > 0 && nextHeight > 0)) return null;
+    const previous = metadata.projection;
+    if (!previous || previous.length !== 4 || !previous.every(Number.isFinite) || !previous[0] || !previous[1]) return null;
+    // The camera's position/direction never changes across responsive layouts;
+    // only its focal scale and crop offset do. Reproject the frozen bitmap with
+    // their exact affine map, without touching the live modal camera or pose.
+    const homeCamera = camera.clone();
+    setRobotCameraViewport(homeCamera, {
+      width: nextWidth, height: nextHeight,
+      compact: (window.innerWidth || nextWidth) <= 700,
+    });
+    const projection = homeCamera.projectionMatrix.elements;
+    const xRatio = projection[0] / previous[0], yRatio = projection[5] / previous[1];
+    return {
+      a: nextWidth / metadata.width * xRatio,
+      d: nextHeight / metadata.height * yRatio,
+      e: nextWidth / 2 * (1 - projection[8] + xRatio * (previous[2] - 1)),
+      f: nextHeight / 2 * (1 + projection[9] - yRatio * (1 + previous[3])),
+    };
+  }
+
   function idleContact(time, offset) {
     const yaw = -0.13 * 0.28;
     const idle = solveRobotPose(
@@ -870,7 +913,8 @@ export async function createRobotScene(canvas, options = {}) {
         rendering:{frozen:introFrozen,dirty:introDirty,depthSources:introDepthSources.length,
           depthBatches:introDepth?.mesh.visible?1:0,depthTriangles:introDepth?.triangles??0}};
     },
-    setModalMode, aimAtModal: modalRig.aimAt, resetModalAim: modalRig.resetAim, completeModalAim,
+    setModalMode, captureHomeFrame, renderHomeFrame, getHomeFrameTransform,
+    aimAtModal: modalRig.aimAt, resetModalAim: modalRig.resetAim, completeModalAim,
     updateModalLayout: modalRig.updateLayout,
     requestModalPress: modalRig.requestPress,
     getModalState: modalRig.getState,

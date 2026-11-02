@@ -23,6 +23,7 @@ export function createModalInteraction({ dialog, panel, scene, getRobot }) {
   scene.before(home);
   let active = false, frame = 0, hovered = null, focused = null;
   let keyboard = false, lastKind = null, robotInModal = false;
+  let prepared = false, background = null, savedPadding = null, savedScroll = null;
   let touch = null, cancelledKind = null, activation = null, activationFrame = 0, activationTimer = 0, releaseTimer = 0;
   const listeners = [];
   const listen = (target, name, handler) => {
@@ -31,6 +32,42 @@ export function createModalInteraction({ dialog, panel, scene, getRobot }) {
   };
   const viewport = () => ({ width: window.innerWidth, height: window.innerHeight });
   const layout = () => ({ ...viewport(), panel: panel.getBoundingClientRect() });
+  function restoreHomeScroll() {
+    if (savedScroll) window.scrollTo?.(savedScroll.x, savedScroll.y);
+  }
+  function refreshBackground() {
+    if (!background) return;
+    const rect = background.holder.getBoundingClientRect();
+    const transform = getRobot()?.getHomeFrameTransform?.(background.frame, rect);
+    if (transform) background.canvas.style.transform = `matrix(${transform.a},0,0,${transform.d},${transform.e},${transform.f})`;
+  }
+  function prepare() {
+    if (prepared || active) return;
+    prepared = true;
+    savedScroll = {x: window.scrollX || 0, y: window.scrollY || 0};
+    const robot = getRobot();
+    if (robot?.captureHomeFrame) {
+      const canvas = document.createElement('canvas');
+      const frame = robot.captureHomeFrame(canvas);
+      if (frame) {
+        const holder = document.createElement('div');
+        holder.className = 'scene modal-home-frame'; holder.setAttribute('aria-hidden', 'true');
+        canvas.style.width = `${frame.width}px`; canvas.style.height = `${frame.height}px`;
+        canvas.style.transformOrigin = '0 0';
+        holder.append(canvas); scene.before(holder);
+        background = {holder, canvas, frame};
+        refreshBackground();
+      }
+    }
+    // Hiding the page scrollbar must not shift the frozen scene or heading.
+    const body = document.body;
+    const pageWidth = document.documentElement?.getBoundingClientRect?.().width ?? document.documentElement?.clientWidth ?? window.innerWidth;
+    const gap = Math.max(0, window.innerWidth - pageWidth);
+    if (gap > .5 && body?.style?.getPropertyValue) {
+      savedPadding = {value: body.style.getPropertyValue('padding-right'), priority: body.style.getPropertyPriority('padding-right')};
+      body.style.setProperty('padding-right', `calc(${getComputedStyle(body).paddingRight || '0px'} + ${gap}px)`, savedPadding.priority);
+    }
+  }
   function specFor(kind) {
     const icon = kind === 'close' ? closeButton.querySelector('.close-icon') : nextButton.querySelector('span');
     const band = dialog.querySelector(kind === 'close' ? '.panel-top' : '.panel-bottom');
@@ -156,6 +193,7 @@ export function createModalInteraction({ dialog, panel, scene, getRobot }) {
   }
   function open() {
     if (active) { refresh(); return; }
+    prepare();
     cancelTouch();
     cancelledKind = null;
     active = true;
@@ -166,13 +204,16 @@ export function createModalInteraction({ dialog, panel, scene, getRobot }) {
     dialog.append(scene);
     // Native showModal() initially focuses the close button. Begin at rest.
     panel.focus({ preventScroll: true });
+    // Native dialog autofocus can scroll even a page with overflow:hidden.
+    restoreHomeScroll();
+    refreshBackground();
     enterRobotMode();
     refresh();
   }
   function close() {
     cancelTouch();
     cancelledKind = null;
-    if (!active && !robotInModal) return;
+    if (!active && !robotInModal && !prepared) return;
     active = false;
     cancelAnimationFrame(frame); frame = 0;
     hovered = null; focused = null; lastKind = null;
@@ -185,8 +226,20 @@ export function createModalInteraction({ dialog, panel, scene, getRobot }) {
     scene.style.removeProperty('clip-path');
     scene.style.removeProperty('opacity');
     home.after(scene);
+    document.body?.classList.remove('modal-open');
+    if (savedPadding) {
+      if (savedPadding.value) document.body.style.setProperty('padding-right', savedPadding.value, savedPadding.priority);
+      else document.body.style.removeProperty('padding-right');
+      savedPadding = null;
+    }
     for (const button of Object.values(controls)) button.classList.remove('is-robot-target');
     robot?.resize();
+    restoreHomeScroll();
+    // Reveal the returned live canvas only after its home frame is painted.
+    robot?.renderHomeFrame?.();
+    if (background) { background.holder.remove(); background.canvas.width = background.canvas.height = 0; background = null; }
+    prepared = false;
+    savedScroll = null;
   }
   listen(dialog, 'keydown', event => {
     if (event.key === 'Tab') { cancelTouch(); keyboard = true; refresh(); }
@@ -241,10 +294,10 @@ export function createModalInteraction({ dialog, panel, scene, getRobot }) {
     });
     listen(button, 'blur', () => { if (focused === kind) focused = null; refresh(); });
   }
-  listen(window, 'resize', () => { if (active) { getRobot()?.resize(); refresh(); } });
+  listen(window, 'resize', () => { if (active) { getRobot()?.resize(); refreshBackground(); refresh(); } });
   listen(dialog.querySelector('.panel-content'), 'scroll', refresh);
   return {
-    open, close, refresh, activate,
+    prepare, open, close, refresh, activate,
     destroy() { close(); listeners.forEach(remove => remove()); home.remove(); },
   };
 }
