@@ -1,6 +1,6 @@
 import * as THREE from './three.module.js';
-import { createTechnicalDrawing } from './robot-drawing.js?v=40';
-import { createIncomingTraces } from './intro-traces.js?v=43';
+import { createTechnicalDrawing } from './robot-drawing.js?v=44';
+import { createIncomingTraces } from './intro-traces.js?v=44';
 import { createMechanicalInternals } from './robot-internals.js?v=27';
 import { createModalRig } from './modal-rig.js?v=38';
 
@@ -533,16 +533,39 @@ export async function createRobotScene(canvas, options = {}) {
   }
   const currentContact = new THREE.Vector3();
   const reducedMotion = options.reducedMotion ?? matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const introHost = document.querySelector('#bootDialog');
+  function getIntroViewport() {
+    const rect = introHost?.getBoundingClientRect?.();
+    // The mobile dialog uses the stable viewport height, which can differ
+    // from innerHeight while the browser's address bar expands or retracts.
+    return {
+      left: rect?.width > 0 && rect?.height > 0 ? rect.left || 0 : 0,
+      top: rect?.width > 0 && rect?.height > 0 ? rect.top || 0 : 0,
+      width: rect?.width > 0 ? rect.width : window.innerWidth || width,
+      height: rect?.height > 0 ? rect.height : window.innerHeight || height,
+    };
+  }
+  function syncIntroCopy() {
+    if ((window.innerWidth || width) > 700 || !introHost?.style?.setProperty) return;
+    const bounds = technicalDrawing.getTraceBounds();
+    if (!Number.isFinite(bounds?.minY)) return;
+    const rect = canvas.getBoundingClientRect(), viewport = getIntroViewport();
+    // Measure the frozen drawing, including the wheels, rather than guessing
+    // from the viewport height. This never moves or scales the live machine.
+    const bottom = (rect.top || 0) - viewport.top + (1 - bounds.minY) * rect.height / 2;
+    introHost.style.setProperty('--intro-robot-bottom', `${bottom}px`);
+  }
   const incomingTraces = createIncomingTraces({
-    host: document.querySelector('#bootDialog'), reducedMotion,
+    host: introHost, reducedMotion,
     getLayout() {
       const rect = canvas.getBoundingClientRect();
-      return { width: window.innerWidth || width, height: window.innerHeight || height,
+      const viewport = getIntroViewport();
+      return { width: viewport.width, height: viewport.height,
         anchors: technicalDrawing.getTraceAnchors().map(anchor => {
           const projected = anchor.point.project(camera);
           return { index: anchor.index, role: anchor.role, arrival: anchor.arrival,
-            x: (rect.left || 0) + (projected.x + 1) * width / 2,
-            y: (rect.top || 0) + (1 - projected.y) * height / 2 };
+            x: (rect.left || 0) - viewport.left + (projected.x + 1) * rect.width / 2,
+            y: (rect.top || 0) - viewport.top + (1 - projected.y) * rect.height / 2 };
         }),
       };
     },
@@ -561,7 +584,10 @@ export async function createRobotScene(canvas, options = {}) {
   let lastViewportKey = '';
   function resize() {
     const rect = canvas.getBoundingClientRect();
-    const viewportKey = [rect.width, rect.height, window.innerWidth, window.innerHeight, modalRig.enabled].join(',');
+    const introViewport = getIntroViewport();
+    const viewportKey = [rect.left, rect.top, rect.width, rect.height,
+      introViewport.left, introViewport.top, introViewport.width, introViewport.height,
+      window.innerWidth, window.innerHeight, modalRig.enabled].join(',');
     if (introMode && viewportKey === lastViewportKey) return;
     lastViewportKey = viewportKey;
     width = Math.max(1, rect.width); height = Math.max(1, rect.height);
@@ -583,7 +609,7 @@ export async function createRobotScene(canvas, options = {}) {
     camera.updateMatrixWorld();
     renderer.setSize(width, height, false);
     if (requestedScreen) requestedContact = mapRobotTarget(requestedScreen.x, requestedScreen.y, camera);
-    if (introMode) { technicalDrawing.prepareTrace(camera); incomingTraces.resize(); introDirty = true; }
+    if (introMode) { technicalDrawing.prepareTrace(camera); syncIntroCopy(); incomingTraces.resize(); introDirty = true; }
   }
   function aimAt(nx, ny) {
     requestedScreen = { x: nx, y: ny };
@@ -643,6 +669,7 @@ export async function createRobotScene(canvas, options = {}) {
     renderHome(performance.now(),0,0);
     prepareIntroDepth();
     technicalDrawing.prepareTrace(camera);
+    syncIntroCopy();
     incomingTraces.begin();
     introFrozen=true; introDirty=true;
     scene.matrixWorldAutoUpdate=false;

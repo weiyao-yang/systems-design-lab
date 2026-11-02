@@ -1,4 +1,4 @@
-// Temporary incoming wires use viewport coordinates; the final machine stays
+// Temporary wires use their dialog surface coordinates; the final machine stays
 // in its original Three.js canvas and is never replaced or translated.
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const clamp = (n, low, high) => Math.min(high, Math.max(low, n));
@@ -139,6 +139,9 @@ function sampleLabel(trace, frame, width, height, label = {}) {
   return label;
 }
 
+// The positioned dialog owns both renderers: mobile browser chrome must not
+// stretch a viewport-sized backing surface inside its smaller 100svh clip.
+// getLayout supplies host-local CSS coordinates, measured once on resize.
 // One canvas replaces the animated SVG tree on capable browsers. Curves and
 // every possible wave caption are prepared once; frames only stroke cached
 // paths and copy cached glyphs. The SVG renderer below is a compatibility path.
@@ -156,7 +159,7 @@ function createCanvasLayer(host, document) {
   if (!atlasContext?.fillText || !atlasContext.measureText) return null;
   canvas.setAttribute('class', 'intro-incoming-traces intro-incoming-canvas');
   canvas.setAttribute('aria-hidden', 'true'); canvas.setAttribute('data-renderer', 'canvas');
-  canvas.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none;z-index:1;display:none';
+  canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none;z-index:1;display:none';
   host.append(canvas);
   let width = 0, height = 0, ratio = 1, items = [], displayed = false, frames = 0;
   const dash = [0, 0], cellWidth = 128, cellHeight = 24, columns = 8;
@@ -236,7 +239,7 @@ export function createIncomingTraces({ host, getLayout, reducedMotion = false } 
   function ensureSvg() {
     if (svg || !host?.append || !document?.createElementNS) return;
     svg = make('svg', { class: 'intro-incoming-traces', 'aria-hidden': 'true', focusable: 'false', preserveAspectRatio: 'none' });
-    svg.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none;z-index:1;display:none';
+    svg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none;z-index:1;display:none';
     host.append(svg);
   }
   function rebuild() {

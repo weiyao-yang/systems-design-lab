@@ -237,7 +237,7 @@ export function createTechnicalDrawing(THREE, surfaces, options = {}) {
   stats.roots = batches.size;
   stats.lineDrawCalls = lineObjects.length;
   stats.drawCalls = stats.depthDrawCalls + stats.lineDrawCalls;
-  let disposed = false;
+  let disposed = false, traceBounds = null;
   return {
     stats, replacedMaterials,
     setReveal(progress) { revealUniform.value = THREE.MathUtils.clamp(Number(progress) || 0, 0, 1); },
@@ -246,14 +246,19 @@ export function createTechnicalDrawing(THREE, surfaces, options = {}) {
       // Choose an outside-facing contour in the actual frozen homepage pose.
       // Feeds from left/top/right/bottom land on the corresponding extremity.
       const projected = new THREE.Vector3();
+      traceBounds = {minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity};
       for (const feed of traceFeeds) {
         feed.owner.updateWorldMatrix(true, false);
         const positions = feed.geometry.attributes.position;
         const forced = feed.geometry.attributes.forceVisible;
         let best = -Infinity, bestIndex = 0;
         for (let i = 0; i < positions.count; i++) {
-          if (forced.getX(i) < .5) continue;
           projected.fromBufferAttribute(positions, i).applyMatrix4(feed.owner.matrixWorld).project(camera);
+          traceBounds.minX = Math.min(traceBounds.minX, projected.x);
+          traceBounds.maxX = Math.max(traceBounds.maxX, projected.x);
+          traceBounds.minY = Math.min(traceBounds.minY, projected.y);
+          traceBounds.maxY = Math.max(traceBounds.maxY, projected.y);
+          if (forced.getX(i) < .5) continue;
           const side = feed.index % 4;
           const score = side === 0 ? -projected.x : side === 1 ? projected.y : side === 2 ? projected.x : -projected.y;
           if (score > best) { best = score; bestIndex = i; }
@@ -266,6 +271,7 @@ export function createTechnicalDrawing(THREE, surfaces, options = {}) {
       return traceFeeds.map(feed => ({index: feed.index, role: feed.role, arrival: feed.arrival,
         point: feed.owner.localToWorld(feed.point.clone())}));
     },
+    getTraceBounds() { return traceBounds && {...traceBounds}; },
     getTraceStart(object) {
       for (let owner = object; owner; owner = owner.parent) {
         const feed = traceFeeds.find(candidate => candidate.owner === owner && candidate.role === 'internal')

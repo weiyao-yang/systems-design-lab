@@ -1,4 +1,4 @@
-import { createRobotScene } from './robot.js?v=43';
+import { createRobotScene } from './robot.js?v=44';
 import { panels } from './content.js?v=5';
 import { createModalInteraction } from './modal-interaction.js?v=38';
 
@@ -410,7 +410,7 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
   const onCancel = event => { event.preventDefault(); skip(); };
   const onResize = () => {
     if (running && boot.open) {
-      reserveHomeWidth(); measureData(); renderData(performance.now());
+      reserveHomeWidth(); getRobot()?.resize?.(); measureData(); renderData(performance.now());
     }
   };
   button.addEventListener('click', enter);

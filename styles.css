@@ -108,16 +108,27 @@ body.intro-leaving .orbit-tag{opacity:1;transform:none;transition-delay:0s}
   .intro-stream-heading{padding-bottom:7px;font-size:6px;letter-spacing:.08em}.intro-stream-heading i{width:3px;height:3px}.intro-stream-heading>span:first-child{gap:6px}#introCount{font-size:5.5px}
   .intro-data{--intro-row-height:13px;height:12svh;min-height:76px;margin:7px 0 8px;font-size:6px;line-height:1.8;opacity:.75}.intro-data-row{grid-template-columns:26px minmax(0,1fr);gap:6px}.intro-data-index{font-size:5px}.intro-data-tag{display:none}
   .intro-stream-footer{padding-top:7px;font-size:5px;letter-spacing:.015em;gap:8px}
-  .intro-copy{left:8vw;right:8vw;top:59.5svh;padding-top:27px}
+  .intro-copy{left:8vw;right:8vw;top:calc(var(--intro-robot-bottom,59.5svh) + clamp(10px,1.5svh,16px));padding-top:0;text-align:center}
   #bootTitle{font-size:clamp(36px,12.3vw,54px);line-height:.91;letter-spacing:.015em}
-  .intro-enter-row{margin-top:23px;gap:16px}.intro-enter{height:43px;min-width:106px;padding:0 13px;font-size:12px;gap:21px}.intro-enter-arrow{font-size:17px}.intro-continue{font-size:9px}
+  .intro-enter-row{margin-top:23px;gap:16px;justify-content:center}.intro-enter{height:43px;min-width:106px;padding:0 13px;font-size:12px;gap:21px}.intro-enter-arrow{font-size:17px}.intro-continue{font-size:9px}
 
 }
 @media(max-width:700px) and (max-height:700px){
   .intro-stream{top:8svh}.intro-data{height:min(12svh,72px);min-height:48px}
-  .intro-copy{inset:0;padding-top:0}
-  #bootTitle{position:absolute;left:8vw;right:8vw;top:min(32svh,190px);font-size:clamp(25px,8.2vw,34px);line-height:1;white-space:nowrap}#bootTitle>span{display:inline}#bootTitle>span:first-child:after{content:' '}
-  .intro-enter-row{position:absolute;left:8vw;bottom:6svh;margin:0;gap:13px}.intro-enter{height:36px;min-width:97px;font-size:10px}.intro-continue{font-size:8px}
+  .intro-copy{top:calc(var(--intro-robot-bottom,59.5svh) + 10px)}
+  #bootTitle{font-size:clamp(28px,9vw,36px);line-height:.95}
+  .intro-enter-row{margin-top:14px;gap:13px}.intro-enter{height:36px;min-width:97px;font-size:10px}.intro-continue{font-size:8px}
+}
+@media(max-width:700px) and (max-height:620px){
+  .intro-copy{top:calc(var(--intro-robot-bottom,59.5svh) + 5px)}
+  #bootTitle{font-size:clamp(20px,6.4vw,26px);line-height:1.05;white-space:nowrap}#bootTitle>span{display:inline}#bootTitle>span:first-child:after{content:' '}
+  .intro-enter-row{margin-top:6px}.intro-enter{height:32px}
+}
+@media(max-width:700px) and (max-height:559px) and (orientation:landscape){
+  /* Retain the existing short-landscape fallback and reachable Enter control. */
+  .intro-copy{inset:0;padding-top:0;text-align:left}
+  #bootTitle{position:absolute;left:8vw;right:8vw;top:min(32svh,190px);font-size:clamp(25px,8.2vw,34px);line-height:1}
+  .intro-enter-row{position:absolute;left:8vw;bottom:6svh;margin:0;gap:13px;justify-content:flex-start}.intro-enter{height:36px}
 }
 @media(min-width:701px) and (max-height:560px){
   /* One height for the opening and homepage keeps the live canvas continuous. */
