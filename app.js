@@ -118,9 +118,13 @@ function updateAim() {
   // Track the real circle throughout hover scaling and responsive layout.
   if (!aimFrame) aimFrame = requestAnimationFrame(() => { aimFrame = 0; updateAim(); });
 }
+// The first HTML paint is covered; start the existing data clock after the hold.
+const initialCover = document.getElementById('openingCover');
+if (initialCover) await new Promise(resolve => setTimeout(resolve, 200));
 showBoot();
 // Paint the data stage before constructing the detailed mechanical model.
 await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+initialCover?.remove();
 try {
   const { createRobotScene } = await import('./robot.js?v=47');
   robot = await createRobotScene($('#robotCanvas'), { reducedMotion, intro: boot.open }); updateAim();
@@ -363,6 +367,7 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
   }
   function start() {
     generation++; stopWork(); running = true; skipRequested = false;
+    document.documentElement?.classList.add('opening-active');
     drawingStarted = null; streamCount = 0; streamStep = 0; streamRows = []; started = performance.now();
     boot.classList.remove('closing', 'ready'); body.classList.remove('intro-leaving');
     reserveHomeWidth(); lab.inert = true;
@@ -385,6 +390,7 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
     if (!running || phase !== 'ready' || !boot.open) return false;
     const token = ++generation;
     stopWork(); setPhase('leaving', 'WELCOME TO THE LAB');
+    document.documentElement?.classList.remove('opening-active');
     boot.classList.add('closing'); body.classList.add('intro-leaving');
     playTone(430, .14, .03);
     exitTimer = setTimeout(() => {
@@ -439,6 +445,7 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
       button.removeEventListener('click', enter); boot.removeEventListener('cancel', onCancel);
       document.removeEventListener('keydown', onKey); window.removeEventListener('resize', onResize);
       if (boot.open) boot.close(); body.classList.remove('booting', 'intro-leaving');
+      document.documentElement?.classList.remove('opening-active');
       restorePadding(); lab.inert = false; getRobot()?.finishIntro?.();
       titleGuides?.destroy();
     },

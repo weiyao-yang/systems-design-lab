@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" class="opening-active">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -9,10 +9,13 @@
   <link rel="icon" href="assets/tic-tac-toe.svg" type="image/svg+xml">
   <style id="opening-first-frame">
     html{background:#f5c9dc}body{margin:0}body.opening-loading #lab>*{visibility:hidden}body.booting .lab>.topbar,body.booting .lab>.hero-heading,body.booting .lab>.orbit-nav{opacity:0}
+    #openingCover{position:fixed;inset:0;z-index:2147483647;background:#f5c9dc;pointer-events:auto}
+    html.opening-active #lab>.topbar,html.opening-active #lab>.hero-heading,html.opening-active #lab>.orbit-nav{visibility:hidden}
   </style>
   <link rel="stylesheet" href="styles.css?v=47">
 </head>
 <body class="booting opening-loading">
+  <div id="openingCover" aria-hidden="true"></div>
   <main id="lab" class="lab" inert>
     <header class="topbar">
       <a class="wordmark" href="./" aria-label="系统设计实验室首页"><svg class="brand-mark" viewBox="8 10 104 100" aria-hidden="true" focusable="false"><image href="assets/tic-tac-toe.svg" width="120" height="120"/></svg><span>SYSTEMS<br>DESIGN LAB<span class="brand-cn">系统设计实验室</span></span></a>
@@ -50,6 +53,6 @@
   </dialog>
 
   <dialog id="contentDialog" class="content-dialog" aria-labelledby="panelTitle"><div id="panelShell" class="panel-shell" tabindex="-1"><div class="panel-top"><span id="panelEyebrow"></span><button id="closePanel" class="close-panel" aria-label="Close panel / 关闭弹窗"><span class="close-icon" aria-hidden="true">✕</span><span class="close-shortcut">ESC</span></button></div><div id="panelContent" class="panel-content"></div><div class="panel-bottom"><span>SYSTEMS DESIGN LAB / EXPLORATION MODE</span><button id="nextPanel">NEXT CONNECTION <span>↗</span><small class="zh-copy">下一个连接</small></button></div></div></dialog>
-  <script type="module" src="app.js?v=47"></script>
+  <script type="module" src="app.js?v=48"></script>
 </body>
 </html>
