@@ -155,16 +155,14 @@ body.booting:has(#bootDialog.ready) .lab>.scene{z-index:13}
 }
 @media(prefers-reduced-motion:reduce){#bootDialog.intro-dialog,.intro-copy,.intro-enter-row,body.booting .lab>.topbar,body.booting .lab>.hero-heading,body.booting .lab>.orbit-nav{transition:none;animation:none;transform:none}.intro-data-row{will-change:auto}}
 
-/* Brand ink alignment and the requested proportional navigation type sizes. */
+/* Brand ink alignment; navigation glyphs scale without resizing their layout. */
 .brand-cn{font-size:8.8px}
 .brand-mark{align-self:flex-end;width:41.6px;height:40px;margin-bottom:.3px}
 .title-star{font:inherit;width:.728em;height:.7em;vertical-align:baseline;margin-left:.1em;overflow:hidden}
 @supports(height:1cap){.title-star{width:1.04cap;height:1cap}}
-.tag-title{font-size:25.2px}.tag-title small{font-size:13.23px}.tag-index{font-size:12.87px}
-@media(max-width:1100px){.tag-title{font-size:22.05px}.tag-title small{font-size:11.76px}}
+.tag-label{display:block;transform:scale(1.05);transform-origin:left center}
+.tag-title small{transform:scale(1.05);transform-origin:left center}
+.tag-number{display:inline-block;transform:scale(1.1);transform-origin:center}
 @media(max-width:700px){
   .brand-cn{font-size:6.6px}.brand-mark{width:32.76px;height:31.5px}
-  .tag-title{font-size:18.9px}.tag-title small{font-size:10.29px}.tag-index{font-size:10.01px}
 }
-@media(max-width:360px){.tag-title{font-size:16.8px}.tag-title small{font-size:9.555px}}
-@media(min-width:701px) and (max-height:560px){.tag-title{font-size:18.9px}.tag-title small{font-size:10.29px}}
