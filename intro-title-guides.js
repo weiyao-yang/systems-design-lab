@@ -1,7 +1,42 @@
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const clamp = value => Math.max(0, Math.min(1, value));
+const DRAW_MS = 2400, FILL_DELAY_MS = 120, FILL_MS = 380, INTRO_MS = 4200;
+const noise = (seed, step) => {
+  const n = Math.sin(seed * 127.1 + step * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+};
 
-/** Ink-tight title construction boxes, driven only by the robot's shared clock. */
+// Cache a slightly uneven pen stroke and a few loose ends at measurement time.
+// Geometry stays still while drawing; no animated SVG filters or framewise noise.
+function sketchBox({ left, right, top, bottom }, index) {
+  const seed = index + 1;
+  const scale = Math.max(.6, Math.min(1.15, (bottom - top) / 55));
+  const point = (x, y) => `${x.toFixed(2)} ${y.toFixed(2)}`;
+  const loose = step => (2.1 + noise(seed, step) * 1.7) * scale;
+  const start = [left - loose(0), top];
+  const corners = [start, [right, top], [right, bottom], [left, bottom], [left, top], [left + loose(1), top]];
+  let outline = `M ${point(...start)}`;
+  for (let edge = 1; edge < corners.length; edge++) {
+    const [x0, y0] = corners[edge - 1], [x1, y1] = corners[edge];
+    const dx = x1 - x0, dy = y1 - y0, length = Math.hypot(dx, dy);
+    const count = Math.max(1, Math.ceil(length / (6 * scale)));
+    for (let step = 1; step <= count; step++) {
+      const t = step / count;
+      const wobble = step === count ? 0 : (noise(seed + edge, step) - .5) * .85 * scale;
+      outline += ` L ${point(x0 + dx * t - dy / length * wobble, y0 + dy * t + dx / length * wobble)}`;
+    }
+  }
+  const wisps = [
+    [[left - .2 * scale, top - loose(2)], [left + .25 * scale, top + loose(3)]],
+    [[right - loose(4), top + .3 * scale], [right + loose(5), top - .25 * scale]],
+    [[right - .2 * scale, bottom - loose(6)], [right + .35 * scale, bottom + loose(7)]],
+    [[left - loose(8), bottom + .3 * scale], [left + loose(9), bottom - .15 * scale]],
+    [[left + (right - left) * .18, top - .7 * scale], [left + (right - left) * .62, top - .45 * scale]],
+  ];
+  return [outline, wisps.map(([a, b]) => `M ${point(...a)} L ${point(...b)}`).join(' ')];
+}
+
+/** Draw the construction guides first, then reveal the title on the shared clock. */
 export function createTitleGuides(title, { reducedMotion = false } = {}) {
   if (!title?.ownerDocument) throw new TypeError('A title element is required.');
   const doc = title.ownerDocument;
@@ -12,6 +47,7 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
   try { context = canvas.getContext('2d'); } catch { /* Text remains usable without Canvas 2D. */ }
   let destroyed = false, progress = 0, valid = false, refreshFrame = 0;
   let paths = [];
+  const originalOpacity = rows.map(row => row.style.opacity);
   const originalPosition = title.style.position;
   const ownsPosition = view.getComputedStyle(title).position === 'static';
   if (ownsPosition) title.style.position = 'relative';
@@ -44,7 +80,11 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
   });
 
   function paint() {
-    const t = reducedMotion ? (progress > 0 ? 1 : 0) : clamp(progress * 4200 / 2400);
+    const elapsed = progress * INTRO_MS;
+    const t = reducedMotion ? (progress > 0 ? 1 : 0) : clamp(elapsed / DRAW_MS);
+    const fill = reducedMotion ? (progress > 0 ? 1 : 0) : clamp((elapsed - DRAW_MS - FILL_DELAY_MS) / FILL_MS);
+    const opacity = String(fill * fill * (3 - 2 * fill));
+    rows.forEach(row => { if (row.style.opacity !== opacity) row.style.opacity = opacity; });
     const visible = valid && t > 0;
     svg.style.visibility = visible ? 'visible' : 'hidden';
     for (const path of paths) {
@@ -85,21 +125,21 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
         const top = baseline - metrics.actualBoundingBoxAscent;
         const bottom = baseline + metrics.actualBoundingBoxDescent;
         if (!(right > left && bottom > top)) continue;
-        // Half a CSS pixel outside the ink puts the inside of the 1px stroke
-        // exactly on the glyph bounds, without covering any of its fill.
-        boxes.push({ left: left - .5, right: right + .5, top: top - .5, bottom: bottom + .5 });
+        // Keep the main stroke just outside the ink; only the loose ends extend.
+        boxes.push({ left: left - .65, right: right + .65, top: top - .65, bottom: bottom + .65 });
       }
     });
-    while (paths.length > boxes.length) paths.pop().remove();
-    boxes.forEach((box, index) => {
+    const strokes = boxes.flatMap(sketchBox);
+    while (paths.length > strokes.length) paths.pop().remove();
+    strokes.forEach((stroke, index) => {
       let path = paths[index];
       if (!path) {
         path = doc.createElementNS(SVG_NS, 'path');
+        path.setAttribute('class', index % 2 ? 'intro-guide-fray' : 'intro-guide-edge');
         path.setAttribute('fill', 'none');
         path.setAttribute('stroke', 'var(--orange, #ff7940)');
-        path.setAttribute('stroke-width', '1');
-        path.setAttribute('stroke-linecap', 'butt');
-        path.setAttribute('stroke-linejoin', 'miter');
+        path.setAttribute('stroke-linecap', 'round');
+        path.setAttribute('stroke-linejoin', 'round');
         path.setAttribute('vector-effect', 'non-scaling-stroke');
         path.setAttribute('pathLength', '1');
         path.style.strokeDasharray = '1';
@@ -107,7 +147,7 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
         svg.append(path);
         paths.push(path);
       }
-      path.setAttribute('d', `M ${box.left} ${box.top} H ${box.right} V ${box.bottom} H ${box.left} Z`);
+      path.setAttribute('d', stroke);
     });
     valid = boxes.length > 0;
     paint();
@@ -146,6 +186,7 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
       view.removeEventListener('resize', scheduleRefresh);
       doc.fonts?.removeEventListener('loadingdone', scheduleRefresh);
       probes.forEach(probe => probe.remove());
+      rows.forEach((row, index) => { row.style.opacity = originalOpacity[index]; });
       svg.remove(); paths = [];
       canvas.width = canvas.height = 0; context = null;
       if (ownsPosition && title.style.position === 'relative') title.style.position = originalPosition;
