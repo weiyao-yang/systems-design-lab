@@ -1,10 +1,11 @@
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const clamp = value => Math.max(0, Math.min(1, value));
-export const TITLE_SEQUENCE_MS = 5400;
-const DRAW_MS = 2400, TITLE_START_MS = 2520, TITLE_REVEAL_MS = 1680;
-const TITLE_START_SPREAD_MS = 600, TITLE_FINISH_SPREAD_MS = 240;
-const BYLINE_START_MS = 4380, BYLINE_REVEAL_MS = 900;
-const BYLINE_START_SPREAD_MS = 300, BYLINE_FINISH_SPREAD_MS = 180;
+export const TITLE_SEQUENCE_MS = 4200;
+const DRAW_MS = 2400, TITLE_START_MS = DRAW_MS, TITLE_REVEAL_MS = 1200;
+const TITLE_START_SPREAD_MS = 420, TITLE_FINISH_SPREAD_MS = 180;
+const BYLINE_START_MS = TITLE_START_MS + TITLE_REVEAL_MS;
+const BYLINE_REVEAL_MS = TITLE_SEQUENCE_MS - BYLINE_START_MS;
+const BYLINE_START_SPREAD_MS = 200, BYLINE_FINISH_SPREAD_MS = 120;
 const smooth = value => value * value * (3 - 2 * value);
 const noise = (seed, step) => {
   const n = Math.sin(seed * 127.1 + step * 311.7) * 43758.5453;
@@ -18,10 +19,15 @@ function revealPlans(elements, duration, startSpread, finishSpread, seed) {
     return weights.map(weight => range > 0 ? (weight - min) / range : 0);
   };
   const starts = normalized(seed), finishes = normalized(seed + 19);
+  const directions = [];
+  // A stable shuffle distributes all four reveal edges across each text group.
+  elements.map((_, index) => ({ index, key: noise(seed + 37, index + 1) }))
+    .sort((a, b) => a.key - b.key)
+    .forEach(({ index }, rank) => { directions[index] = rank % 4; });
   return elements.map((_, index) => {
     const delay = starts[index] * startSpread;
     const end = duration - (elements.length > 1 ? finishSpread : 0) + finishes[index] * finishSpread;
-    return { delay, duration: Math.max(1, end - delay) };
+    return { delay, duration: Math.max(1, end - delay), direction: directions[index] };
   });
 }
 
@@ -134,20 +140,23 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
     const t = reducedMotion ? (instant ? 1 : 0) : clamp(elapsed / DRAW_MS);
     const rowOpacity = instant || elapsed > TITLE_START_MS ? '1' : '0';
     rows.forEach(row => { if (row.style.opacity !== rowOpacity) row.style.opacity = rowOpacity; });
-    function reveal(element, amount) {
+    function reveal(element, amount, direction) {
       if (!element) return;
       const opacity = String(smooth(clamp(amount / .45)));
-      const right = amount >= 1 ? '0' : (100 * (1 - smooth(amount))).toFixed(3) + '%';
-      const clip = `inset(0 ${right} 0 0)`;
+      const hidden = amount >= 1 ? '0' : (100 * (1 - smooth(amount))).toFixed(3) + '%';
+      const edges = ['0', '0', '0', '0'];
+      // Left, right, top and bottom entrances clip the opposite edge.
+      edges[[1, 3, 2, 0][direction]] = hidden;
+      const clip = `inset(${edges.join(' ')})`;
       if (element.style.opacity !== opacity) element.style.opacity = opacity;
       if (element.style.clipPath !== clip) element.style.clipPath = clip;
     }
-    letters.forEach((letter, index) => reveal(letter, instant ? 1 : clamp((elapsed - TITLE_START_MS - letterPlans[index].delay) / letterPlans[index].duration)));
+    letters.forEach((letter, index) => reveal(letter, instant ? 1 : clamp((elapsed - TITLE_START_MS - letterPlans[index].delay) / letterPlans[index].duration), letterPlans[index].direction));
     if (byline) {
       const opacity = instant || elapsed > BYLINE_START_MS ? '1' : '0';
       if (byline.style.opacity !== opacity) byline.style.opacity = opacity;
     }
-    bylineLetters.forEach((letter, index) => reveal(letter, instant ? 1 : clamp((elapsed - BYLINE_START_MS - bylinePlans[index].delay) / bylinePlans[index].duration)));
+    bylineLetters.forEach((letter, index) => reveal(letter, instant ? 1 : clamp((elapsed - BYLINE_START_MS - bylinePlans[index].delay) / bylinePlans[index].duration), bylinePlans[index].direction));
     const visible = valid && t > 0;
     svg.style.visibility = visible ? 'visible' : 'hidden';
     for (const path of paths) {

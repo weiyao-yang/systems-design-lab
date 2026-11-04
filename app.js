@@ -1,6 +1,6 @@
 import { panels } from './content.js?v=5';
 import { createModalInteraction } from './modal-interaction.js?v=53';
-import { createTitleGuides, TITLE_SEQUENCE_MS } from './intro-title-guides.js?v=61';
+import { createTitleGuides, TITLE_SEQUENCE_MS } from './intro-title-guides.js?v=62';
 
 const $ = s => document.querySelector(s);
 const lab = $('#lab');
@@ -327,7 +327,7 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
   }
   function setProgress(value) {
     progress = Math.min(1, Math.max(0, value));
-    getRobot()?.setIntroProgress?.(Math.min(1, progress * TITLE_SEQUENCE_MS / 4200));
+    getRobot()?.setIntroProgress?.(progress);
     titleGuides?.setProgress(progress);
     const percent = Math.round(progress * 100);
     if (progressLabel && percent !== progressPercent) {
