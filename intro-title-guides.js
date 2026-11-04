@@ -2,12 +2,20 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const clamp = value => Math.max(0, Math.min(1, value));
 export const TITLE_SEQUENCE_MS = 5400;
 const DRAW_MS = 2400, TITLE_START_MS = 2520, TITLE_REVEAL_MS = 1680;
-const LETTER_REVEAL_MS = 650, BYLINE_START_MS = 4380, BYLINE_REVEAL_MS = 900;
+const TITLE_FINISH_SPREAD_MS = 180, BYLINE_START_MS = 4380, BYLINE_REVEAL_MS = 900;
+const BYLINE_FINISH_SPREAD_MS = 110;
 const smooth = value => value * value * (3 - 2 * value);
 const noise = (seed, step) => {
   const n = Math.sin(seed * 127.1 + step * 311.7) * 43758.5453;
   return n - Math.floor(n);
 };
+
+function revealDurations(elements, duration, spread, seed) {
+  const weights = elements.map((_, index) => noise(seed, index + 1));
+  const min = Math.min(...weights), range = Math.max(...weights) - min;
+  return weights.map(weight => duration - (elements.length > 1 ? spread : 0)
+    + (range > 0 ? (weight - min) / range * spread : 0));
+}
 
 // Each visual line shares one uninterrupted cap line and one baseline.
 // Adjacent letters share dividers; only straight endpoint overhangs vary.
@@ -53,6 +61,24 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
   const rows = [...title.querySelectorAll('.intro-title-line')];
   const letters = rows.flatMap(row => [...row.querySelectorAll('.intro-letter')]);
   const byline = title.querySelector('.intro-byline');
+  const originalBylineNodes = byline ? [...byline.childNodes] : [];
+  const bylineLetters = [];
+  if (byline) {
+    const fragment = doc.createDocumentFragment();
+    for (const character of byline.textContent) {
+      const span = doc.createElement('span');
+      const space = /\s/.test(character);
+      span.className = space ? 'intro-byline-space' : 'intro-byline-letter';
+      span.textContent = character;
+      if (!space) bylineLetters.push(span);
+      fragment.append(span);
+    }
+    byline.replaceChildren(fragment);
+  }
+  // All glyphs in a group begin on the same clock tick. Their finish times
+  // differ slightly, deterministically, and never change between frames.
+  const letterDurations = revealDurations(letters, TITLE_REVEAL_MS, TITLE_FINISH_SPREAD_MS, 41);
+  const bylineDurations = revealDurations(bylineLetters, BYLINE_REVEAL_MS, BYLINE_FINISH_SPREAD_MS, 73);
   const canvas = doc.createElement('canvas');
   let context = null;
   try { context = canvas.getContext('2d'); } catch { /* Text remains usable without Canvas 2D. */ }
@@ -100,7 +126,6 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
     const t = reducedMotion ? (instant ? 1 : 0) : clamp(elapsed / DRAW_MS);
     const rowOpacity = instant || elapsed > TITLE_START_MS ? '1' : '0';
     rows.forEach(row => { if (row.style.opacity !== rowOpacity) row.style.opacity = rowOpacity; });
-    const stagger = (TITLE_REVEAL_MS - LETTER_REVEAL_MS) / Math.max(1, letters.length - 1);
     function reveal(element, amount) {
       if (!element) return;
       const opacity = String(smooth(clamp(amount / .45)));
@@ -109,8 +134,12 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
       if (element.style.opacity !== opacity) element.style.opacity = opacity;
       if (element.style.clipPath !== clip) element.style.clipPath = clip;
     }
-    letters.forEach((letter, index) => reveal(letter, instant ? 1 : clamp((elapsed - TITLE_START_MS - index * stagger) / LETTER_REVEAL_MS)));
-    reveal(byline, instant ? 1 : clamp((elapsed - BYLINE_START_MS) / BYLINE_REVEAL_MS));
+    letters.forEach((letter, index) => reveal(letter, instant ? 1 : clamp((elapsed - TITLE_START_MS) / letterDurations[index])));
+    if (byline) {
+      const opacity = instant || elapsed > BYLINE_START_MS ? '1' : '0';
+      if (byline.style.opacity !== opacity) byline.style.opacity = opacity;
+    }
+    bylineLetters.forEach((letter, index) => reveal(letter, instant ? 1 : clamp((elapsed - BYLINE_START_MS) / bylineDurations[index])));
     const visible = valid && t > 0;
     svg.style.visibility = visible ? 'visible' : 'hidden';
     for (const path of paths) {
@@ -229,6 +258,7 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
         letter.style.clipPath = originalLetterStyles[index].clipPath;
       });
       if (byline) {
+        byline.replaceChildren(...originalBylineNodes);
         byline.style.opacity = originalBylineOpacity;
         byline.style.clipPath = originalBylineClip;
         if (originalBylineOffset) byline.style.setProperty('--intro-byline-offset', originalBylineOffset);
