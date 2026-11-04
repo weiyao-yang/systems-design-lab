@@ -6,25 +6,40 @@ const noise = (seed, step) => {
   return n - Math.floor(n);
 };
 
-// Keep every box square and axis-aligned. Only the straight overhangs vary.
-// Endpoint lengths are cached at measurement time and remain still while drawing.
-function constructionBox({ left, right, top, bottom }, index) {
+// Each visual line shares one uninterrupted cap line and one baseline.
+// Adjacent letters share dividers; only straight endpoint overhangs vary.
+function constructionRow({ boxes, em }, index) {
+  boxes.sort((a, b) => a.left - b.left);
+  const left = boxes[0].left, right = boxes.at(-1).right;
+  const top = Math.min(...boxes.map(box => box.top));
+  const bottom = Math.max(...boxes.map(box => box.bottom));
   const seed = index + 1;
   const scale = Math.max(.6, Math.min(1.15, (bottom - top) / 55));
   const point = (x, y) => `${x.toFixed(2)} ${y.toFixed(2)}`;
   const overhang = step => (1.4 + Math.pow(noise(seed, step), 1.4) * 5.8) * scale;
-  const outline = `M ${point(left, top)} H ${right.toFixed(2)} V ${bottom.toFixed(2)} H ${left.toFixed(2)} Z`;
+  const rules = `M ${point(left, top)} H ${right.toFixed(2)} M ${point(left, bottom)} H ${right.toFixed(2)}`;
+  const dividers = [left];
+  for (let i = 1; i < boxes.length; i++) {
+    const previous = boxes[i - 1].right, next = boxes[i].left;
+    if (next - previous > em * .15) dividers.push(previous, next);
+    else dividers.push((previous + next) / 2);
+  }
+  dividers.push(right);
   const extensions = [
     `M ${point(left, top)} H ${(left - overhang(0)).toFixed(2)}`,
     `M ${point(right, top)} H ${(right + overhang(1)).toFixed(2)}`,
     `M ${point(right, bottom)} H ${(right + overhang(2)).toFixed(2)}`,
     `M ${point(left, bottom)} H ${(left - overhang(3)).toFixed(2)}`,
-    `M ${point(left, top)} V ${(top - overhang(4)).toFixed(2)}`,
-    `M ${point(right, top)} V ${(top - overhang(5)).toFixed(2)}`,
-    `M ${point(right, bottom)} V ${(bottom + overhang(6)).toFixed(2)}`,
-    `M ${point(left, bottom)} V ${(bottom + overhang(7)).toFixed(2)}`,
   ];
-  return [outline, extensions.join(' ')];
+  dividers.forEach((x, column) => {
+    extensions.push(`M ${point(x, top)} V ${(top - overhang(4 + column * 2)).toFixed(2)}`,
+      `M ${point(x, bottom)} V ${(bottom + overhang(5 + column * 2)).toFixed(2)}`);
+  });
+  return [
+    { className: 'intro-guide-rule', d: rules },
+    { className: 'intro-guide-divider', d: dividers.map(x => `M ${point(x, top)} V ${bottom.toFixed(2)}`).join(' ') },
+    { className: 'intro-guide-extension', d: extensions.join(' ') },
+  ];
 }
 
 /** Draw the construction guides first, then reveal the title on the shared clock. */
@@ -33,12 +48,15 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
   const doc = title.ownerDocument;
   const view = doc.defaultView;
   const rows = [...title.querySelectorAll('.intro-title-line')];
+  const byline = title.querySelector('.intro-byline');
   const canvas = doc.createElement('canvas');
   let context = null;
   try { context = canvas.getContext('2d'); } catch { /* Text remains usable without Canvas 2D. */ }
   let destroyed = false, progress = 0, valid = false, refreshFrame = 0;
   let paths = [];
   const originalOpacity = rows.map(row => row.style.opacity);
+  const originalBylineOpacity = byline?.style.opacity;
+  const originalBylineOffset = byline?.style.getPropertyValue('--intro-byline-offset');
   const originalPosition = title.style.position;
   const ownsPosition = view.getComputedStyle(title).position === 'static';
   if (ownsPosition) title.style.position = 'relative';
@@ -76,6 +94,7 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
     const fill = reducedMotion ? (progress > 0 ? 1 : 0) : clamp((elapsed - DRAW_MS - FILL_DELAY_MS) / FILL_MS);
     const opacity = String(fill * fill * (3 - 2 * fill));
     rows.forEach(row => { if (row.style.opacity !== opacity) row.style.opacity = opacity; });
+    if (byline && byline.style.opacity !== opacity) byline.style.opacity = opacity;
     const visible = valid && t > 0;
     svg.style.visibility = visible ? 'visible' : 'hidden';
     for (const path of paths) {
@@ -91,9 +110,12 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
     valid = !!context && overlay.width > 0 && overlay.height > 0;
     if (!valid) { paint(); return; }
     svg.setAttribute('viewBox', `0 0 ${overlay.width} ${overlay.height}`);
-    const boxes = [];
+    const groups = [];
+    let firstInkLeft = null;
     rows.forEach((row, rowIndex) => {
       const baseline = probes[rowIndex].getBoundingClientRect().top - overlay.top;
+      let group = groups.find(entry => Math.abs(entry.baseline - baseline) < .5);
+      if (!group) { group = { baseline, boxes: [], em: 0 }; groups.push(group); }
       for (const letter of row.querySelectorAll('.intro-letter')) {
         const bounds = letter.getBoundingClientRect();
         if (!(bounds.width > 0 && bounds.height > 0)) continue;
@@ -116,17 +138,24 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
         const top = baseline - metrics.actualBoundingBoxAscent;
         const bottom = baseline + metrics.actualBoundingBoxDescent;
         if (!(right > left && bottom > top)) continue;
+        if (firstInkLeft === null) firstInkLeft = left;
+        group.em = Number.parseFloat(style.fontSize);
         // Keep the main stroke just outside the ink; only the loose ends extend.
-        boxes.push({ left: left - .65, right: right + .65, top: top - .65, bottom: bottom + .65 });
+        group.boxes.push({ left: left - .65, right: right + .65, top: top - .65, bottom: bottom + .65 });
       }
     });
-    const strokes = boxes.flatMap(constructionBox);
+    if (byline && firstInkLeft !== null) {
+      const style = view.getComputedStyle(byline);
+      context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      const bearing = context.measureText(byline.textContent).actualBoundingBoxLeft;
+      byline.style.setProperty('--intro-byline-offset', `${firstInkLeft + (Number.isFinite(bearing) ? bearing : 0)}px`);
+    }
+    const strokes = groups.filter(group => group.boxes.length).flatMap(constructionRow);
     while (paths.length > strokes.length) paths.pop().remove();
     strokes.forEach((stroke, index) => {
       let path = paths[index];
       if (!path) {
         path = doc.createElementNS(SVG_NS, 'path');
-        path.setAttribute('class', index % 2 ? 'intro-guide-extension' : 'intro-guide-edge');
         path.setAttribute('fill', 'none');
         path.setAttribute('stroke', 'var(--orange, #ff7940)');
         path.setAttribute('stroke-linecap', 'butt');
@@ -138,9 +167,10 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
         svg.append(path);
         paths.push(path);
       }
-      path.setAttribute('d', stroke);
+      path.setAttribute('class', stroke.className);
+      path.setAttribute('d', stroke.d);
     });
-    valid = boxes.length > 0;
+    valid = strokes.length > 0;
     paint();
   }
 
@@ -178,6 +208,11 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
       doc.fonts?.removeEventListener('loadingdone', scheduleRefresh);
       probes.forEach(probe => probe.remove());
       rows.forEach((row, index) => { row.style.opacity = originalOpacity[index]; });
+      if (byline) {
+        byline.style.opacity = originalBylineOpacity;
+        if (originalBylineOffset) byline.style.setProperty('--intro-byline-offset', originalBylineOffset);
+        else byline.style.removeProperty('--intro-byline-offset');
+      }
       svg.remove(); paths = [];
       canvas.width = canvas.height = 0; context = null;
       if (ownsPosition && title.style.position === 'relative') title.style.position = originalPosition;

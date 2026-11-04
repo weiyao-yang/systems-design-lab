@@ -1,6 +1,6 @@
 import { panels } from './content.js?v=5';
 import { createModalInteraction } from './modal-interaction.js?v=53';
-import { createTitleGuides } from './intro-title-guides.js?v=57';
+import { createTitleGuides } from './intro-title-guides.js?v=58';
 
 const $ = s => document.querySelector(s);
 const lab = $('#lab');
