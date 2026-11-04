@@ -2,19 +2,27 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const clamp = value => Math.max(0, Math.min(1, value));
 export const TITLE_SEQUENCE_MS = 5400;
 const DRAW_MS = 2400, TITLE_START_MS = 2520, TITLE_REVEAL_MS = 1680;
-const TITLE_FINISH_SPREAD_MS = 180, BYLINE_START_MS = 4380, BYLINE_REVEAL_MS = 900;
-const BYLINE_FINISH_SPREAD_MS = 110;
+const TITLE_START_SPREAD_MS = 600, TITLE_FINISH_SPREAD_MS = 240;
+const BYLINE_START_MS = 4380, BYLINE_REVEAL_MS = 900;
+const BYLINE_START_SPREAD_MS = 300, BYLINE_FINISH_SPREAD_MS = 180;
 const smooth = value => value * value * (3 - 2 * value);
 const noise = (seed, step) => {
   const n = Math.sin(seed * 127.1 + step * 311.7) * 43758.5453;
   return n - Math.floor(n);
 };
 
-function revealDurations(elements, duration, spread, seed) {
-  const weights = elements.map((_, index) => noise(seed, index + 1));
-  const min = Math.min(...weights), range = Math.max(...weights) - min;
-  return weights.map(weight => duration - (elements.length > 1 ? spread : 0)
-    + (range > 0 ? (weight - min) / range * spread : 0));
+function revealPlans(elements, duration, startSpread, finishSpread, seed) {
+  const normalized = salt => {
+    const weights = elements.map((_, index) => noise(salt, index + 1));
+    const min = Math.min(...weights), range = Math.max(...weights) - min;
+    return weights.map(weight => range > 0 ? (weight - min) / range : 0);
+  };
+  const starts = normalized(seed), finishes = normalized(seed + 19);
+  return elements.map((_, index) => {
+    const delay = starts[index] * startSpread;
+    const end = duration - (elements.length > 1 ? finishSpread : 0) + finishes[index] * finishSpread;
+    return { delay, duration: Math.max(1, end - delay) };
+  });
 }
 
 // Each visual line shares one uninterrupted cap line and one baseline.
@@ -75,10 +83,10 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
     }
     byline.replaceChildren(fragment);
   }
-  // All glyphs in a group begin on the same clock tick. Their finish times
-  // differ slightly, deterministically, and never change between frames.
-  const letterDurations = revealDurations(letters, TITLE_REVEAL_MS, TITLE_FINISH_SPREAD_MS, 41);
-  const bylineDurations = revealDurations(bylineLetters, BYLINE_REVEAL_MS, BYLINE_FINISH_SPREAD_MS, 73);
+  // Every glyph has its own cached start and duration, independent of reading
+  // order. The overlapping reveals remain continuous and repeat predictably.
+  const letterPlans = revealPlans(letters, TITLE_REVEAL_MS, TITLE_START_SPREAD_MS, TITLE_FINISH_SPREAD_MS, 41);
+  const bylinePlans = revealPlans(bylineLetters, BYLINE_REVEAL_MS, BYLINE_START_SPREAD_MS, BYLINE_FINISH_SPREAD_MS, 73);
   const canvas = doc.createElement('canvas');
   let context = null;
   try { context = canvas.getContext('2d'); } catch { /* Text remains usable without Canvas 2D. */ }
@@ -134,12 +142,12 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
       if (element.style.opacity !== opacity) element.style.opacity = opacity;
       if (element.style.clipPath !== clip) element.style.clipPath = clip;
     }
-    letters.forEach((letter, index) => reveal(letter, instant ? 1 : clamp((elapsed - TITLE_START_MS) / letterDurations[index])));
+    letters.forEach((letter, index) => reveal(letter, instant ? 1 : clamp((elapsed - TITLE_START_MS - letterPlans[index].delay) / letterPlans[index].duration)));
     if (byline) {
       const opacity = instant || elapsed > BYLINE_START_MS ? '1' : '0';
       if (byline.style.opacity !== opacity) byline.style.opacity = opacity;
     }
-    bylineLetters.forEach((letter, index) => reveal(letter, instant ? 1 : clamp((elapsed - BYLINE_START_MS) / bylineDurations[index])));
+    bylineLetters.forEach((letter, index) => reveal(letter, instant ? 1 : clamp((elapsed - BYLINE_START_MS - bylinePlans[index].delay) / bylinePlans[index].duration)));
     const visible = valid && t > 0;
     svg.style.visibility = visible ? 'visible' : 'hidden';
     for (const path of paths) {
