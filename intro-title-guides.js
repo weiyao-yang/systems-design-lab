@@ -6,34 +6,25 @@ const noise = (seed, step) => {
   return n - Math.floor(n);
 };
 
-// Cache a slightly uneven pen stroke and a few loose ends at measurement time.
-// Geometry stays still while drawing; no animated SVG filters or framewise noise.
-function sketchBox({ left, right, top, bottom }, index) {
+// Keep every box square and axis-aligned. Only the straight overhangs vary.
+// Endpoint lengths are cached at measurement time and remain still while drawing.
+function constructionBox({ left, right, top, bottom }, index) {
   const seed = index + 1;
   const scale = Math.max(.6, Math.min(1.15, (bottom - top) / 55));
   const point = (x, y) => `${x.toFixed(2)} ${y.toFixed(2)}`;
-  const loose = step => (2.1 + noise(seed, step) * 1.7) * scale;
-  const start = [left - loose(0), top];
-  const corners = [start, [right, top], [right, bottom], [left, bottom], [left, top], [left + loose(1), top]];
-  let outline = `M ${point(...start)}`;
-  for (let edge = 1; edge < corners.length; edge++) {
-    const [x0, y0] = corners[edge - 1], [x1, y1] = corners[edge];
-    const dx = x1 - x0, dy = y1 - y0, length = Math.hypot(dx, dy);
-    const count = Math.max(1, Math.ceil(length / (6 * scale)));
-    for (let step = 1; step <= count; step++) {
-      const t = step / count;
-      const wobble = step === count ? 0 : (noise(seed + edge, step) - .5) * .85 * scale;
-      outline += ` L ${point(x0 + dx * t - dy / length * wobble, y0 + dy * t + dx / length * wobble)}`;
-    }
-  }
-  const wisps = [
-    [[left - .2 * scale, top - loose(2)], [left + .25 * scale, top + loose(3)]],
-    [[right - loose(4), top + .3 * scale], [right + loose(5), top - .25 * scale]],
-    [[right - .2 * scale, bottom - loose(6)], [right + .35 * scale, bottom + loose(7)]],
-    [[left - loose(8), bottom + .3 * scale], [left + loose(9), bottom - .15 * scale]],
-    [[left + (right - left) * .18, top - .7 * scale], [left + (right - left) * .62, top - .45 * scale]],
+  const overhang = step => (1.4 + Math.pow(noise(seed, step), 1.4) * 5.8) * scale;
+  const outline = `M ${point(left, top)} H ${right.toFixed(2)} V ${bottom.toFixed(2)} H ${left.toFixed(2)} Z`;
+  const extensions = [
+    `M ${point(left, top)} H ${(left - overhang(0)).toFixed(2)}`,
+    `M ${point(right, top)} H ${(right + overhang(1)).toFixed(2)}`,
+    `M ${point(right, bottom)} H ${(right + overhang(2)).toFixed(2)}`,
+    `M ${point(left, bottom)} H ${(left - overhang(3)).toFixed(2)}`,
+    `M ${point(left, top)} V ${(top - overhang(4)).toFixed(2)}`,
+    `M ${point(right, top)} V ${(top - overhang(5)).toFixed(2)}`,
+    `M ${point(right, bottom)} V ${(bottom + overhang(6)).toFixed(2)}`,
+    `M ${point(left, bottom)} V ${(bottom + overhang(7)).toFixed(2)}`,
   ];
-  return [outline, wisps.map(([a, b]) => `M ${point(...a)} L ${point(...b)}`).join(' ')];
+  return [outline, extensions.join(' ')];
 }
 
 /** Draw the construction guides first, then reveal the title on the shared clock. */
@@ -129,17 +120,17 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
         boxes.push({ left: left - .65, right: right + .65, top: top - .65, bottom: bottom + .65 });
       }
     });
-    const strokes = boxes.flatMap(sketchBox);
+    const strokes = boxes.flatMap(constructionBox);
     while (paths.length > strokes.length) paths.pop().remove();
     strokes.forEach((stroke, index) => {
       let path = paths[index];
       if (!path) {
         path = doc.createElementNS(SVG_NS, 'path');
-        path.setAttribute('class', index % 2 ? 'intro-guide-fray' : 'intro-guide-edge');
+        path.setAttribute('class', index % 2 ? 'intro-guide-extension' : 'intro-guide-edge');
         path.setAttribute('fill', 'none');
         path.setAttribute('stroke', 'var(--orange, #ff7940)');
-        path.setAttribute('stroke-linecap', 'round');
-        path.setAttribute('stroke-linejoin', 'round');
+        path.setAttribute('stroke-linecap', 'butt');
+        path.setAttribute('stroke-linejoin', 'miter');
         path.setAttribute('vector-effect', 'non-scaling-stroke');
         path.setAttribute('pathLength', '1');
         path.style.strokeDasharray = '1';
