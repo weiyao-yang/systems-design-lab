@@ -2,11 +2,10 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 const clamp = value => Math.max(0, Math.min(1, value));
 export const TITLE_SEQUENCE_MS = 4200;
 const DRAW_MS = 2400, TITLE_START_MS = DRAW_MS, TITLE_REVEAL_MS = 1200;
-const TITLE_START_SPREAD_MS = 420, TITLE_FINISH_SPREAD_MS = 180;
+const TITLE_START_SPREAD_MS = 720, TITLE_FINISH_SPREAD_MS = 480;
 const BYLINE_START_MS = TITLE_START_MS + TITLE_REVEAL_MS;
 const BYLINE_REVEAL_MS = TITLE_SEQUENCE_MS - BYLINE_START_MS;
-const BYLINE_START_SPREAD_MS = 200, BYLINE_FINISH_SPREAD_MS = 120;
-const smooth = value => value * value * (3 - 2 * value);
+const BYLINE_START_SPREAD_MS = 360, BYLINE_FINISH_SPREAD_MS = 240;
 const noise = (seed, step) => {
   const n = Math.sin(seed * 127.1 + step * 311.7) * 43758.5453;
   return n - Math.floor(n);
@@ -19,14 +18,20 @@ function revealPlans(elements, duration, startSpread, finishSpread, seed) {
     return weights.map(weight => range > 0 ? (weight - min) / range : 0);
   };
   const starts = normalized(seed), finishes = normalized(seed + 19);
+  const leaders = starts.map((weight, index) => ({ weight, index }))
+    .filter(({ index }) => /[A-Za-z]/.test(elements[index].textContent))
+    .sort((a, b) => a.weight - b.weight).slice(0, 2).map(entry => entry.index);
   const directions = [];
   // A stable shuffle distributes all four reveal edges across each text group.
   elements.map((_, index) => ({ index, key: noise(seed + 37, index + 1) }))
     .sort((a, b) => a.key - b.key)
     .forEach(({ index }, rank) => { directions[index] = rank % 4; });
   return elements.map((_, index) => {
-    const delay = starts[index] * startSpread;
-    const end = duration - (elements.length > 1 ? finishSpread : 0) + finishes[index] * finishSpread;
+    let delay = starts[index] * startSpread;
+    let end = duration - (elements.length > 1 ? finishSpread : 0) + finishes[index] * finishSpread;
+    if (index === leaders[0]) { delay = 0; end = duration * .72; }
+    else if (index === leaders[1]) { delay = 0; end = duration; }
+    end = Math.min(duration, Math.max(end, delay + duration * .28));
     return { delay, duration: Math.max(1, end - delay), direction: directions[index] };
   });
 }
@@ -60,10 +65,16 @@ function constructionRow({ boxes, em }, index) {
     extensions.push(`M ${point(x, top)} V ${(top - overhang(4 + column * 2)).toFixed(2)}`,
       `M ${point(x, bottom)} V ${(bottom + overhang(5 + column * 2)).toFixed(2)}`);
   });
+  const extensionLengths = extensions.map(segment => {
+    const match = /M ([-\d.]+) ([-\d.]+) ([HV]) ([-\d.]+)/.exec(segment);
+    return Math.abs(Number(match[4]) - Number(match[match[3] === 'H' ? 1 : 2]));
+  });
   return [
-    { className: 'intro-guide-rule', d: rules },
-    { className: 'intro-guide-divider', d: dividers.map(x => `M ${point(x, top)} V ${bottom.toFixed(2)}`).join(' ') },
-    { className: 'intro-guide-extension', d: extensions.join(' ') },
+    // SVG restarts its dash pattern at each M. Normalize to a single segment,
+    // otherwise the paired horizontal rules finish halfway through the clock.
+    { className: 'intro-guide-rule', d: rules, pathLength: 2 },
+    { className: 'intro-guide-divider', d: dividers.map(x => `M ${point(x, top)} V ${bottom.toFixed(2)}`).join(' '), pathLength: dividers.length },
+    { className: 'intro-guide-extension', d: extensions.join(' '), pathLength: extensionLengths.reduce((sum, value) => sum + value, 0) / Math.max(...extensionLengths) },
   ];
 }
 
@@ -98,6 +109,7 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
   try { context = canvas.getContext('2d'); } catch { /* Text remains usable without Canvas 2D. */ }
   let destroyed = false, progress = 0, valid = false, refreshFrame = 0;
   let paths = [];
+  const glyphInk = new Map();
   const originalOpacity = rows.map(row => row.style.opacity);
   const originalLetterStyles = letters.map(letter => ({ opacity: letter.style.opacity, clipPath: letter.style.clipPath }));
   const originalBylineOpacity = byline?.style.opacity;
@@ -120,7 +132,7 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
 
   // An empty inline-block's bottom edge is its alphabetic baseline. It has no
   // ink, width, height or line-height and therefore leaves the title flow alone.
-  const probes = rows.map(row => {
+  const probes = (byline ? [...rows, byline] : rows).map(row => {
     const probe = doc.createElement('span');
     probe.className = 'intro-baseline-probe';
     probe.setAttribute('aria-hidden', 'true');
@@ -138,30 +150,42 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
     const elapsed = progress * TITLE_SEQUENCE_MS;
     const instant = reducedMotion && progress > 0;
     const t = reducedMotion ? (instant ? 1 : 0) : clamp(elapsed / DRAW_MS);
-    const rowOpacity = instant || elapsed > TITLE_START_MS ? '1' : '0';
+    const rowOpacity = instant || elapsed >= TITLE_START_MS ? '1' : '0';
     rows.forEach(row => { if (row.style.opacity !== rowOpacity) row.style.opacity = rowOpacity; });
-    function reveal(element, amount, direction) {
+    function reveal(element, raw, direction) {
       if (!element) return;
-      const opacity = String(smooth(clamp(amount / .45)));
-      const hidden = amount >= 1 ? '0' : (100 * (1 - smooth(amount))).toFixed(3) + '%';
+      const active = raw >= 0, amount = clamp(raw);
+      const opacity = active ? '1' : '0';
       const edges = ['0', '0', '0', '0'];
-      // Left, right, top and bottom entrances clip the opposite edge.
-      edges[[1, 3, 2, 0][direction]] = hidden;
+      const side = [1, 3, 2, 0][direction];
+      if (!active) edges[side] = '100%';
+      else if (amount < 1) {
+        const ink = glyphInk.get(element) || { width: 100, height: 100, left: 0, right: 100, top: 0, bottom: 100 };
+        const extent = direction < 2 ? ink.right - ink.left : ink.bottom - ink.top;
+        // Start with a real, opaque ink sliver, not blank font side bearings
+        // plus a slow fade. The leading glyphs are visible on the handoff frame.
+        const lead = Math.min(extent, Math.max(1.25, extent * .05));
+        const length = lead + (extent - lead) * amount;
+        const hidden = [ink.width - ink.left - length, ink.right - length,
+          ink.height - ink.top - length, ink.bottom - length][direction];
+        edges[side] = `${(100 * Math.max(0, hidden) / (direction < 2 ? ink.width : ink.height)).toFixed(3)}%`;
+      }
       const clip = `inset(${edges.join(' ')})`;
       if (element.style.opacity !== opacity) element.style.opacity = opacity;
       if (element.style.clipPath !== clip) element.style.clipPath = clip;
     }
-    letters.forEach((letter, index) => reveal(letter, instant ? 1 : clamp((elapsed - TITLE_START_MS - letterPlans[index].delay) / letterPlans[index].duration), letterPlans[index].direction));
+    letters.forEach((letter, index) => reveal(letter, instant ? 1 : (elapsed - TITLE_START_MS - letterPlans[index].delay) / letterPlans[index].duration, letterPlans[index].direction));
     if (byline) {
-      const opacity = instant || elapsed > BYLINE_START_MS ? '1' : '0';
+      const opacity = instant || elapsed >= BYLINE_START_MS ? '1' : '0';
       if (byline.style.opacity !== opacity) byline.style.opacity = opacity;
     }
-    bylineLetters.forEach((letter, index) => reveal(letter, instant ? 1 : clamp((elapsed - BYLINE_START_MS - bylinePlans[index].delay) / bylinePlans[index].duration), bylinePlans[index].direction));
+    bylineLetters.forEach((letter, index) => reveal(letter, instant ? 1 : (elapsed - BYLINE_START_MS - bylinePlans[index].delay) / bylinePlans[index].duration, bylinePlans[index].direction));
     const visible = valid && t > 0;
     svg.style.visibility = visible ? 'visible' : 'hidden';
     for (const path of paths) {
-      path.style.visibility = visible ? 'visible' : 'hidden';
-      path.style.strokeDashoffset = String(1 - t);
+      const visibility = visible ? 'visible' : 'hidden', offset = String(1 - t);
+      if (path.style.visibility !== visibility) path.style.visibility = visibility;
+      if (path.style.strokeDashoffset !== offset) path.style.strokeDashoffset = offset;
     }
   }
 
@@ -172,6 +196,7 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
     valid = !!context && overlay.width > 0 && overlay.height > 0;
     if (!valid) { paint(); return; }
     svg.setAttribute('viewBox', `0 0 ${overlay.width} ${overlay.height}`);
+    glyphInk.clear();
     const groups = [];
     let firstInkLeft = null;
     rows.forEach((row, rowIndex) => {
@@ -200,6 +225,9 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
         const top = baseline - metrics.actualBoundingBoxAscent;
         const bottom = baseline + metrics.actualBoundingBoxDescent;
         if (!(right > left && bottom > top)) continue;
+        glyphInk.set(letter, { width: bounds.width, height: bounds.height,
+          left: -metrics.actualBoundingBoxLeft, right: metrics.actualBoundingBoxRight,
+          top: overlay.top + top - bounds.top, bottom: overlay.top + bottom - bounds.top });
         if (firstInkLeft === null) firstInkLeft = left;
         group.em = Number.parseFloat(style.fontSize);
         // Keep the main stroke just outside the ink; only the loose ends extend.
@@ -211,6 +239,15 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
       context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
       const bearing = context.measureText(byline.textContent).actualBoundingBoxLeft;
       byline.style.setProperty('--intro-byline-offset', `${firstInkLeft + (Number.isFinite(bearing) ? bearing : 0)}px`);
+      const baseline = probes[rows.length].getBoundingClientRect().top;
+      for (const letter of bylineLetters) {
+        const bounds = letter.getBoundingClientRect();
+        const metrics = context.measureText(letter.textContent);
+        if (bounds.width > 0 && bounds.height > 0) glyphInk.set(letter, {
+          width: bounds.width, height: bounds.height, left: -metrics.actualBoundingBoxLeft,
+          right: metrics.actualBoundingBoxRight, top: baseline - metrics.actualBoundingBoxAscent - bounds.top,
+          bottom: baseline + metrics.actualBoundingBoxDescent - bounds.top });
+      }
     }
     const strokes = groups.filter(group => group.boxes.length).flatMap(constructionRow);
     while (paths.length > strokes.length) paths.pop().remove();
@@ -223,7 +260,6 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
         path.setAttribute('stroke-linecap', 'butt');
         path.setAttribute('stroke-linejoin', 'miter');
         path.setAttribute('vector-effect', 'non-scaling-stroke');
-        path.setAttribute('pathLength', '1');
         path.style.strokeDasharray = '1';
         path.style.visibility = 'hidden';
         svg.append(path);
@@ -231,6 +267,7 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
       }
       path.setAttribute('class', stroke.className);
       path.setAttribute('d', stroke.d);
+      path.setAttribute('pathLength', String(stroke.pathLength));
     });
     valid = strokes.length > 0;
     paint();
@@ -282,6 +319,7 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
         else byline.style.removeProperty('--intro-byline-offset');
       }
       svg.remove(); paths = [];
+      glyphInk.clear();
       canvas.width = canvas.height = 0; context = null;
       if (ownsPosition && title.style.position === 'relative') title.style.position = originalPosition;
     },
