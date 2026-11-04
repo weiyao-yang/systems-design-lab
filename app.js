@@ -1,6 +1,6 @@
 import { panels } from './content.js?v=5';
 import { createModalInteraction } from './modal-interaction.js?v=53';
-import { createTitleGuides } from './intro-title-guides.js?v=58';
+import { createTitleGuides, TITLE_SEQUENCE_MS } from './intro-title-guides.js?v=59';
 
 const $ = s => document.querySelector(s);
 const lab = $('#lab');
@@ -327,7 +327,7 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
   }
   function setProgress(value) {
     progress = Math.min(1, Math.max(0, value));
-    getRobot()?.setIntroProgress?.(progress);
+    getRobot()?.setIntroProgress?.(Math.min(1, progress * TITLE_SEQUENCE_MS / 4200));
     titleGuides?.setProgress(progress);
     const percent = Math.round(progress * 100);
     if (progressLabel && percent !== progressPercent) {
@@ -407,7 +407,7 @@ export function createOpeningSequence({ boot, lab, getRobot, reducedMotion = fal
         drawingStarted = now; setPhase('drawing', 'TRACING SDL—01');
         status.textContent = 'CONNECTING SYSTEMS. FORMING IDEAS.';
       }
-      setProgress((now - drawingStarted) / 4200);
+      setProgress((now - drawingStarted) / TITLE_SEQUENCE_MS);
       if (progress >= 1) { ready(); return; }
     }
     frame = requestAnimationFrame(tick);

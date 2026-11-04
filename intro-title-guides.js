@@ -1,6 +1,9 @@
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const clamp = value => Math.max(0, Math.min(1, value));
-const DRAW_MS = 2400, FILL_DELAY_MS = 120, FILL_MS = 380, INTRO_MS = 4200;
+export const TITLE_SEQUENCE_MS = 5400;
+const DRAW_MS = 2400, TITLE_START_MS = 2520, TITLE_REVEAL_MS = 1680;
+const LETTER_REVEAL_MS = 650, BYLINE_START_MS = 4380, BYLINE_REVEAL_MS = 900;
+const smooth = value => value * value * (3 - 2 * value);
 const noise = (seed, step) => {
   const n = Math.sin(seed * 127.1 + step * 311.7) * 43758.5453;
   return n - Math.floor(n);
@@ -48,6 +51,7 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
   const doc = title.ownerDocument;
   const view = doc.defaultView;
   const rows = [...title.querySelectorAll('.intro-title-line')];
+  const letters = rows.flatMap(row => [...row.querySelectorAll('.intro-letter')]);
   const byline = title.querySelector('.intro-byline');
   const canvas = doc.createElement('canvas');
   let context = null;
@@ -55,7 +59,9 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
   let destroyed = false, progress = 0, valid = false, refreshFrame = 0;
   let paths = [];
   const originalOpacity = rows.map(row => row.style.opacity);
+  const originalLetterStyles = letters.map(letter => ({ opacity: letter.style.opacity, clipPath: letter.style.clipPath }));
   const originalBylineOpacity = byline?.style.opacity;
+  const originalBylineClip = byline?.style.clipPath;
   const originalBylineOffset = byline?.style.getPropertyValue('--intro-byline-offset');
   const originalPosition = title.style.position;
   const ownsPosition = view.getComputedStyle(title).position === 'static';
@@ -89,12 +95,22 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
   });
 
   function paint() {
-    const elapsed = progress * INTRO_MS;
-    const t = reducedMotion ? (progress > 0 ? 1 : 0) : clamp(elapsed / DRAW_MS);
-    const fill = reducedMotion ? (progress > 0 ? 1 : 0) : clamp((elapsed - DRAW_MS - FILL_DELAY_MS) / FILL_MS);
-    const opacity = String(fill * fill * (3 - 2 * fill));
-    rows.forEach(row => { if (row.style.opacity !== opacity) row.style.opacity = opacity; });
-    if (byline && byline.style.opacity !== opacity) byline.style.opacity = opacity;
+    const elapsed = progress * TITLE_SEQUENCE_MS;
+    const instant = reducedMotion && progress > 0;
+    const t = reducedMotion ? (instant ? 1 : 0) : clamp(elapsed / DRAW_MS);
+    const rowOpacity = instant || elapsed > TITLE_START_MS ? '1' : '0';
+    rows.forEach(row => { if (row.style.opacity !== rowOpacity) row.style.opacity = rowOpacity; });
+    const stagger = (TITLE_REVEAL_MS - LETTER_REVEAL_MS) / Math.max(1, letters.length - 1);
+    function reveal(element, amount) {
+      if (!element) return;
+      const opacity = String(smooth(clamp(amount / .45)));
+      const right = amount >= 1 ? '0' : (100 * (1 - smooth(amount))).toFixed(3) + '%';
+      const clip = `inset(0 ${right} 0 0)`;
+      if (element.style.opacity !== opacity) element.style.opacity = opacity;
+      if (element.style.clipPath !== clip) element.style.clipPath = clip;
+    }
+    letters.forEach((letter, index) => reveal(letter, instant ? 1 : clamp((elapsed - TITLE_START_MS - index * stagger) / LETTER_REVEAL_MS)));
+    reveal(byline, instant ? 1 : clamp((elapsed - BYLINE_START_MS) / BYLINE_REVEAL_MS));
     const visible = valid && t > 0;
     svg.style.visibility = visible ? 'visible' : 'hidden';
     for (const path of paths) {
@@ -208,8 +224,13 @@ export function createTitleGuides(title, { reducedMotion = false } = {}) {
       doc.fonts?.removeEventListener('loadingdone', scheduleRefresh);
       probes.forEach(probe => probe.remove());
       rows.forEach((row, index) => { row.style.opacity = originalOpacity[index]; });
+      letters.forEach((letter, index) => {
+        letter.style.opacity = originalLetterStyles[index].opacity;
+        letter.style.clipPath = originalLetterStyles[index].clipPath;
+      });
       if (byline) {
         byline.style.opacity = originalBylineOpacity;
+        byline.style.clipPath = originalBylineClip;
         if (originalBylineOffset) byline.style.setProperty('--intro-byline-offset', originalBylineOffset);
         else byline.style.removeProperty('--intro-byline-offset');
       }
