@@ -120,7 +120,7 @@ showBoot();
 await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 initialCover?.remove();
 try {
-  const { createRobotScene } = await import('./robot.js?v=53');
+  const { createRobotScene } = await import('./robot.js?v=71');
   robot = await createRobotScene($('#robotCanvas'), { reducedMotion, intro: boot.open }); updateAim();
 }
 catch (error) { console.warn('3D scene unavailable:', error); $('.scene-fallback').hidden = false; }

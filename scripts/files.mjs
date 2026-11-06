@@ -8,6 +8,8 @@ export const websiteFiles = [
   'app.js',
   'content.js',
   'robot.js',
+  'construction-sign.js',
+  'construction-collision.js',
   'modal-rig.js',
   'modal-interaction.js',
   'robot-drawing.js',

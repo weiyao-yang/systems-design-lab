@@ -3,6 +3,7 @@ import { createTechnicalDrawing } from './robot-drawing.js?v=44';
 import { createIncomingTraces } from './intro-traces.js?v=46';
 import { createMechanicalInternals } from './robot-internals.js?v=27';
 import { createModalRig } from './modal-rig.js?v=38';
+import { createConstructionSign } from './construction-sign.js?v=7';
 
 const ARM = { upper: 1.52, lower: 1.36, shoulderY: -0.58, tool: 0.96 };
 
@@ -596,6 +597,19 @@ export async function createRobotScene(canvas, options = {}) {
     getViewport: () => ({ width, height }),
   });
 
+  // Optional decoration: all artwork and pendulum physics live in one module.
+  // Set CONSTRUCTION_SIGN_ENABLED=false in construction-sign.js to remove it.
+  const constructionSign = createConstructionSign({ THREE, scene, camera, attachment: wrist, chassis: drive, reducedMotion });
+  const previousBeforeRender = scene.onBeforeRender;
+  let signLastRender = performance.now();
+  scene.onBeforeRender = function (...args) {
+    previousBeforeRender.apply(this, args);
+    const now = performance.now(), elapsed = (now - signLastRender) / 1000;
+    signLastRender = now;
+    const signReveal = introMode ? THREE.MathUtils.smoothstep(introProgress, 0.84, 1) : 1;
+    constructionSign.update(elapsed > 0.0001 ? elapsed : 0, !modalRig.enabled, signReveal);
+  };
+
   let lastViewportKey = '', lastCompact = null;
   function resize() {
     const rect = canvas.getBoundingClientRect();
@@ -940,6 +954,7 @@ export async function createRobotScene(canvas, options = {}) {
     },
     dispose() {
       disposed = true; cancelAnimationFrame(frameId); observer.disconnect();
+      scene.onBeforeRender = previousBeforeRender; constructionSign.dispose();
       cancelAnimationFrame(introViewportFrame); introViewportObserver?.disconnect();
       window.removeEventListener?.('scroll', syncIntroViewport);
       introVisualViewport?.removeEventListener('resize', syncIntroViewport);
