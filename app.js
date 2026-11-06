@@ -1,4 +1,4 @@
-import { panels } from './content.js?v=66';
+import { panels } from './content.js?v=68';
 import { createModalInteraction } from './modal-interaction.js?v=53';
 import { createTitleGuides, TITLE_SEQUENCE_MS } from './intro-title-guides.js?v=63';
 
@@ -61,15 +61,6 @@ function showPanel(id) {
   modalInteraction.open();
   dialog.scrollTop = 0; $('#panelContent').scrollTop = 0;
   tone(540, .12);
-  if (p.id === 'prototypes') {
-    $('#prototypePlay').addEventListener('click', () => {
-      const running = $('#prototypeStage').classList.toggle('running');
-      $('#prototypePlay').setAttribute('aria-pressed', String(running));
-      $('#prototypePlay').innerHTML = running ? 'PAUSE EXPERIMENT Ⅱ<small class="zh-copy">暂停轨道实验</small>' : 'START EXPERIMENT ↗<small class="zh-copy">启动轨道实验</small>';
-      $('#prototypeStatus').innerHTML = running ? 'CONNECTING<small class="zh-copy">关系流动中</small>' : 'READY<small class="zh-copy">等待输入</small>';
-      tone(running ? 650 : 340, .12);
-    });
-  }
   if (p.id === 'contact') {
     $('#contactForm').addEventListener('submit', e => {
       e.preventDefault(); const fd = new FormData(e.currentTarget);

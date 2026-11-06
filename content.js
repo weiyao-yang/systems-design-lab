@@ -33,16 +33,33 @@ export const panels = [
       <div class="principle-row"><span>03</span><b>Keep evolving<small class="zh-copy">持续演进</small></b><p>Test assumptions with prototypes. Make each response an input for the next iteration.<small class="zh-copy">通过原型检验假设，让反馈成为下一次设计的输入。</small></p></div>`
   },
   {
-    id: 'prototypes',
-    eyebrow: '03 / PLAY & PROTOTYPE',
-    kicker: 'LESS THEORY. MORE PLAY.',
-    title: 'PROTOTYPES',
-    titleZh: '交互原型',
-    intro: 'Put an idea in motion. Start a small experiment in orbits, relationships, and feedback.',
-    introZh: '先让想法动起来，开启一场关于轨道、关系与反馈的小实验。',
-    body: `<div class="prototype-stage" id="prototypeStage"><div class="prototype-ring"><div class="prototype-orb"></div></div></div>
-      <div class="prototype-controls"><button class="primary-button" id="prototypePlay" aria-pressed="false">START EXPERIMENT ↗<small class="zh-copy">启动轨道实验</small></button><p id="prototypeStatus">READY / 等待输入</p></div>
-      <p class="demo-note">Prototype 001 — every interaction changes the state of the system.<small class="zh-copy">原型 001 · 每一次交互，都让系统进入新的状态。</small></p>`
+    id: 'publications',
+    eyebrow: '03 / PUBLICATIONS',
+    kicker: 'PUBLISHED RESEARCH',
+    title: 'PUBLICATIONS',
+    titleZh: '学术出版物',
+    intro: 'Selected journal articles as first or corresponding author.',
+    introZh: '已出版的第一作者或通讯作者期刊论文，共 7 篇。',
+    body: `<div class="publications-list">
+      <p class="publication-legend"><strong>Yang, W.</strong> = Weiyao Yang / 杨玮尧 · <sup>*</sup> Corresponding author / 通讯作者</p>
+      <section class="publication-year" aria-labelledby="publications2025">
+        <h3 id="publications2025">2025</h3>
+        <ol>
+          <li class="publication-item"><a href="https://doi.org/10.1177/23998083241258240" target="_blank" rel="noopener noreferrer"><strong>Yang, W.<sup>*</sup></strong>, Yan, W., Chen, L., &amp; Li, H. (2025). From city center to suburbs: Developing a timeline-based TOD assessment model to explore the dynamic changes in station areas of Tokyo metropolitan area. <em>Environment and Planning B: Urban Analytics and City Science</em>, 52(1), 214–230.<span class="publication-doi">DOI: 10.1177/23998083241258240 <span aria-hidden="true">↗</span></span></a></li>
+          <li class="publication-item"><a href="https://doi.org/10.1016/j.jenvman.2025.125067" target="_blank" rel="noopener noreferrer"><strong>Yang, W.</strong>, Tian, S., Zhai, M.<sup>*</sup>, Li, F., Huo, D., Wang, S., Liu, S., &amp; Liu, Z. (2025). Can sustainable policies drive TOD effectively? Insights from multi-scenario simulations. <em>Journal of Environmental Management</em>, 380, 125067.<span class="publication-doi">DOI: 10.1016/j.jenvman.2025.125067 <span aria-hidden="true">↗</span></span></a></li>
+          <li class="publication-item"><a href="https://doi.org/10.1016/j.jenvman.2025.124060" target="_blank" rel="noopener noreferrer">Xu, Q., Chen, C., Huang, X., &amp; <strong>Yang, W.<sup>*</sup></strong> (2025). Assessment of residential renewable energy investment under dynamic market environment: Aspect from household benefits. <em>Journal of Environmental Management</em>, 374, 124060.<span class="publication-doi">DOI: 10.1016/j.jenvman.2025.124060 <span aria-hidden="true">↗</span></span></a></li>
+          <li class="publication-item"><a href="https://doi.org/10.1016/j.seta.2025.104246" target="_blank" rel="noopener noreferrer">Zhai, M., Tian, X., Liu, Z., Zhao, Y., Deng, Y., &amp; <strong>Yang, W.<sup>*</sup></strong> (2025). Advancing Just Transition: The Role of Biomass Co-Firing in Emission Reductions and Employment for Coal Regions. <em>Sustainable Energy Technologies and Assessments</em>, 75, 104246.<span class="publication-doi">DOI: 10.1016/j.seta.2025.104246 <span aria-hidden="true">↗</span></span></a></li>
+        </ol>
+      </section>
+      <section class="publication-year" aria-labelledby="publications2024">
+        <h3 id="publications2024">2024</h3>
+        <ol start="5">
+          <li class="publication-item"><a href="https://doi.org/10.1177/23998083231202880" target="_blank" rel="noopener noreferrer"><strong>Yang, W.<sup>*</sup></strong>, Yan, W., Chen, L., Wei, H., &amp; Gan, S. (2024). Developing a TOD assessment model based on node–place–ecology for suburban areas of metropolitan cities: A case in Odawara. <em>Environment and Planning B: Urban Analytics and City Science</em>, 51(4), 839–853.<span class="publication-doi">DOI: 10.1177/23998083231202880 <span aria-hidden="true">↗</span></span></a></li>
+          <li class="publication-item"><a href="https://doi.org/10.1016/j.trd.2024.104456" target="_blank" rel="noopener noreferrer"><strong>Yang, W.</strong>, Xu, Q.<sup>*</sup>, Yi, S., Shankar, R., &amp; Chen, T. (2024). Enhancing transit-oriented development sustainability through the integrated node-place-ecology (NPE) model. <em>Transportation Research Part D: Transport and Environment</em>, 136, 104456.<span class="publication-doi">DOI: 10.1016/j.trd.2024.104456 <span aria-hidden="true">↗</span></span></a></li>
+          <li class="publication-item"><a href="https://doi.org/10.1016/j.jenvman.2024.123274" target="_blank" rel="noopener noreferrer"><strong>Yang, W.</strong>, Xu, Q.<sup>*</sup>, Zhai, M., Chen, C., &amp; Yi, S. (2024). Are different TOD circles oriented towards sustainability amidst urban shrinkage? Evidence from urban areas to suburbs in the Tokyo Metropolitan Area. <em>Journal of Environmental Management</em>, 372, 123274.<span class="publication-doi">DOI: 10.1016/j.jenvman.2024.123274 <span aria-hidden="true">↗</span></span></a></li>
+        </ol>
+      </section>
+    </div>`
   },
   {
     id: 'about',
