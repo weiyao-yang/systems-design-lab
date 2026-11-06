@@ -11,10 +11,9 @@ export function createConstructionSign({ THREE, scene, camera, attachment, chass
   }
   const width = 1.12, height = .49, drop = .51;
   const maxAngle = .48, damping = 2.8, gravity = 9.81;
-  // Every arm shell lies behind joint-local z=.525. A small rigid standoff
-  // keeps the hanging plate outside a conservative .55 safety plane at any yaw.
-  // This is geometric clearance; depth testing alone cannot prevent collision.
-  const mountZ = 1.30, mountBaseZ = .44, safeZ = .55;
+  // Hang the eyelet directly on the wrist bearing's front center. Keep its
+  // clearance plane just ahead of the local wrist/forearm, without a standoff.
+  const mountZ = .44, safeZ = .415;
   const softZone = .025, contactSlop = .0015, approachRate = 18;
   const floorY = -1.98, floorMargin = .020, groundTilt = .48;
   const chassisTilt = .85;
@@ -169,10 +168,6 @@ export function createConstructionSign({ THREE, scene, camera, attachment, chass
     mesh(new THREE.TorusGeometry(.019, .004, 6, 20), metalMaterial, pendulum, side * holeX, holeY, .031, 65);
   }
   mesh(new THREE.TorusGeometry(.030, .007, 8, 24), metalMaterial, root, 0, 0, .024, 66);
-  const standoff = mesh(new THREE.CylinderGeometry(.012, .012, mountZ - mountBaseZ, 8), metalMaterial, root,
-    0, 0, -(mountZ - mountBaseZ) / 2, 64);
-  standoff.rotation.x = Math.PI / 2;
-  mesh(new THREE.TorusGeometry(.025, .006, 6, 20), metalMaterial, root, 0, 0, mountBaseZ - mountZ, 65);
 
   const anchor = new THREE.Vector3(), previousAnchor = new THREE.Vector3();
   const velocity = new THREE.Vector3(), measuredVelocity = new THREE.Vector3();
@@ -269,7 +264,7 @@ export function createConstructionSign({ THREE, scene, camera, attachment, chass
     // The opening deliberately freezes scene matrices. Update only the anchor's
     // ancestor chain and our own subtree, never the complete robot or its pose.
     attachment.updateWorldMatrix(true, false);
-    anchor.set(0, -.018, mountZ).applyMatrix4(attachment.matrixWorld);
+    anchor.set(0, 0, mountZ).applyMatrix4(attachment.matrixWorld);
     attachment.getWorldScale(worldScale);
     scale = Math.max(.0001, Math.abs(worldScale.x));
     // Keep the acrylic face fixed to the joint's physical front/back direction.

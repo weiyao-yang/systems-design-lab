@@ -3,7 +3,7 @@ import { createTechnicalDrawing } from './robot-drawing.js?v=44';
 import { createIncomingTraces } from './intro-traces.js?v=46';
 import { createMechanicalInternals } from './robot-internals.js?v=27';
 import { createModalRig } from './modal-rig.js?v=38';
-import { createConstructionSign } from './construction-sign.js?v=7';
+import { createConstructionSign } from './construction-sign.js?v=8';
 
 const ARM = { upper: 1.52, lower: 1.36, shoulderY: -0.58, tool: 0.96 };
 
