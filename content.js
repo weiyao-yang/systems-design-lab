@@ -51,6 +51,11 @@ export const panels = [
     body: `<div class="people-profile">
       <aside class="people-portrait">
         <img class="people-photo" src="assets/weiyao-yang.jpg" width="770" height="998" alt="杨玮尧博士 / Dr. Weiyao Yang" decoding="async">
+        <nav class="people-links" aria-label="Weiyao Yang — contact and academic profiles">
+          <a href="mailto:weiyao.yang@pku.edu.cn" aria-label="Email Weiyao Yang: weiyao.yang@pku.edu.cn" title="weiyao.yang@pku.edu.cn"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 6.6 4.7a2.4 2.4 0 0 0 2.8 0L20 7"/></svg></a>
+          <a href="https://orcid.org/0009-0002-3872-4736" target="_blank" rel="noopener noreferrer" aria-label="Weiyao Yang on ORCID (opens in a new tab)" title="ORCID"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="7.7" cy="8" r=".9" fill="currentColor" stroke="none"/><path d="M7.7 10.5v6M11 7.5h2a4.5 4.5 0 0 1 0 9h-2z"/></svg></a>
+          <a href="https://scholar.google.com/citations?user=42VUgP0AAAAJ&amp;hl=en" target="_blank" rel="noopener noreferrer" aria-label="Weiyao Yang on Google Scholar (opens in a new tab)" title="Google Scholar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.5 8.5 12 2l10.5 6.5L12 15z" fill="currentColor" stroke="none"/><path d="M6 12v4.5c0 2.2 2.7 4 6 4s6-1.8 6-4V12M22.5 8.5V16" fill="none"/></svg></a>
+        </nav>
       </aside>
       <div class="people-identity">
         <header class="people-heading"><h2 id="panelTitle" lang="en">Weiyao YANG</h2><p class="people-name-zh" lang="zh-CN">杨玮尧</p></header>
@@ -59,11 +64,6 @@ export const panels = [
           <p><span lang="en">Peking University</span> <span lang="zh-CN">北京大学</span></p>
           <p><span lang="en">School of Urban Planning and Design</span> <span lang="zh-CN">城市规划与设计学院</span></p>
         </div>
-        <nav class="people-links" aria-label="Weiyao Yang — contact and academic profiles">
-          <a href="mailto:weiyao.yang@pku.edu.cn" aria-label="Email Weiyao Yang: weiyao.yang@pku.edu.cn" title="weiyao.yang@pku.edu.cn"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 6.6 4.7a2.4 2.4 0 0 0 2.8 0L20 7"/></svg></a>
-          <a href="https://orcid.org/0009-0002-3872-4736" target="_blank" rel="noopener noreferrer" aria-label="Weiyao Yang on ORCID (opens in a new tab)" title="ORCID"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="7.7" cy="8" r=".9" fill="currentColor" stroke="none"/><path d="M7.7 10.5v6M11 7.5h2a4.5 4.5 0 0 1 0 9h-2z"/></svg></a>
-          <a href="https://scholar.google.com/citations?user=42VUgP0AAAAJ&amp;hl=en" target="_blank" rel="noopener noreferrer" aria-label="Weiyao Yang on Google Scholar (opens in a new tab)" title="Google Scholar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.5 8.5 12 2l10.5 6.5L12 15z" fill="currentColor" stroke="none"/><path d="M6 12v4.5c0 2.2 2.7 4 6 4s6-1.8 6-4V12M22.5 8.5V16" fill="none"/></svg></a>
-        </nav>
       </div>
       <article class="people-biography" aria-labelledby="panelTitle">
           <p lang="en">Dr. Weiyao Yang is a Postdoctoral Researcher at Peking University Shenzhen Graduate School and has been selected for the Guangdong Provincial Overseas Postdoctoral Talent Support Program; he also serves as Director of the Executive Office of the Guangdong Provincial Key Laboratory of Risk Perception and Sustainable Governance in Energy Transition. He previously served as a Senior Researcher at the Keio Research Institute at SFC, Keio University, Japan. He received his Ph.D. from Keio University’s Graduate School of Media and Governance. He has published over 20 research articles in internationally recognized journals indexed in the Web of Science Core Collection. He serves as principal investigator on projects under the Young Scientists Fund (Category C) of the National Natural Science Foundation of China and the Guangdong Province Philosophy and Social Sciences Planning Youth Project. He has completed over 80 peer reviews for more than 40 SCIE- and SSCI-indexed journals. His research focuses on data mining and AI-driven design. He explores the complexity and evolutionary dynamics of coupled human–nature–society systems and is committed to developing playful and engaging human–computer interaction systems. Guided by a “Paper-to-Product” (P2P) philosophy, he works to translate research into practical applications.</p>
