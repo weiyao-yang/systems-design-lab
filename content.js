@@ -95,10 +95,66 @@ export const panels = [
     </section>
     </section>
     <section class="people-member-section" aria-labelledby="peopleCoreTitle">
-      <h2 class="people-section-title" id="peopleCoreTitle"><span lang="en">Core Members</span> <span lang="zh-CN">核心成员</span></h2>
+      <h2 class="people-section-title" id="peopleCoreTitle"><span lang="en">Members</span> <span lang="zh-CN">成员</span></h2>
     </section>
     <section class="people-member-section" aria-labelledby="peopleCollaboratorsTitle">
       <h2 class="people-section-title" id="peopleCollaboratorsTitle"><span lang="en">Research Collaborators</span> <span lang="zh-CN">合作学者</span></h2>
+      <div class="people-alumni-grid">
+        <article class="alumni-nameplate" aria-labelledby="collaboratorWeixuanChen">
+          <header class="alumni-nameplate-heading">
+            <h3 id="collaboratorWeixuanChen" lang="en">Weixuan CHEN</h3>
+            <p lang="zh-CN">陈伟旋</p>
+          </header>
+          <p class="alumni-nameplate-degree"><span lang="en">Assistant Professor</span><span lang="zh-CN">助理教授</span></p>
+          <div class="alumni-nameplate-affiliation">
+            <p lang="en">Jinan University</p>
+            <p lang="zh-CN">暨南大学</p>
+          </div>
+        </article>
+        <article class="alumni-nameplate" aria-labelledby="collaboratorQianXu">
+          <header class="alumni-nameplate-heading">
+            <h3 id="collaboratorQianXu" lang="en">Qian (Phoebe) XU</h3>
+          </header>
+          <p class="alumni-nameplate-degree"><span lang="en">Senior Lecturer</span><span lang="zh-CN">高级讲师</span></p>
+          <div class="alumni-nameplate-affiliation">
+            <p lang="en">University of Bristol</p>
+            <p lang="zh-CN">布里斯托大学</p>
+          </div>
+        </article>
+        <article class="alumni-nameplate" aria-labelledby="collaboratorQingYu">
+          <header class="alumni-nameplate-heading">
+            <h3 id="collaboratorQingYu" lang="en">Qing YU</h3>
+            <p lang="zh-CN">余庆</p>
+          </header>
+          <p class="alumni-nameplate-degree"><span lang="en">Assistant Professor</span><span lang="zh-CN">助理教授</span></p>
+          <div class="alumni-nameplate-affiliation">
+            <p lang="en">Shenzhen University</p>
+            <p lang="zh-CN">深圳大学</p>
+          </div>
+        </article>
+        <article class="alumni-nameplate" aria-labelledby="collaboratorJianYuan">
+          <header class="alumni-nameplate-heading">
+            <h3 id="collaboratorJianYuan" lang="en">Jian YUAN</h3>
+            <p lang="zh-CN">袁见</p>
+          </header>
+          <p class="alumni-nameplate-degree"><span lang="en">Postdoctoral Researcher</span><span lang="zh-CN">博士后</span></p>
+          <div class="alumni-nameplate-affiliation">
+            <p lang="en">Peking University</p>
+            <p lang="zh-CN">北京大学</p>
+          </div>
+        </article>
+        <article class="alumni-nameplate" aria-labelledby="collaboratorHaoranZhang">
+          <header class="alumni-nameplate-heading">
+            <h3 id="collaboratorHaoranZhang" lang="en">Haoran ZHANG</h3>
+            <p lang="zh-CN">张浩然</p>
+          </header>
+          <p class="alumni-nameplate-degree"><span lang="en">Assistant Professor</span><span lang="zh-CN">助理教授</span></p>
+          <div class="alumni-nameplate-affiliation">
+            <p lang="en">Peking University</p>
+            <p lang="zh-CN">北京大学</p>
+          </div>
+        </article>
+      </div>
     </section>
     <section class="people-member-section" aria-labelledby="peopleAlumniTitle">
       <h2 class="people-section-title" id="peopleAlumniTitle"><span lang="en">Alumni</span> <span lang="zh-CN">校友 / 前成员</span></h2>
