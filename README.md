@@ -21,7 +21,7 @@ git clone https://github.com/weiyao-yang/weiyao-yang.github.io.git
 cd weiyao-yang.github.io
 ```
 
-克隆会保留 Git 历史和发布工作流，之后可以直接提交、推送修改。
+克隆会保留 Git 历史和检查工作流；原仓库已配置 Pages，之后可以直接提交、推送修改来更新网站。
 
 ### 方式 B：下载 ZIP
 
@@ -65,13 +65,15 @@ npm run check
 npm run build
 ```
 
-`check` 检查 JavaScript 语法和静态资源引用；`build` 将网站静态文件复制到 `dist/`，供部署使用。`dist/` 是生成目录，继续修改时请编辑项目根目录里的源码。
+`check` 检查 JavaScript 语法和静态资源引用；`build` 将网站静态文件复制到 `dist/`，可用于导出到其他静态服务器。当前 GitHub Pages 直接发布项目根目录，`dist/` 是生成目录，继续修改时请编辑项目根目录里的源码。
 
 ## 4. 发布到 GitHub Pages
 
-仓库包含 `.github/workflows/deploy.yml`。在仓库 **Settings → Pages → Source** 中选择 **GitHub Actions**，此项只需配置一次。
+在仓库 **Settings → Pages → Build and deployment** 中，将 **Source** 设为 **Deploy from a branch**，选择 **main** 分支、**/(root)** 目录并保存，此项只需配置一次。GitHub Pages 直接发布根目录中可编辑的静态网站，`.nojekyll` 应保留。
 
-配置依据：[GitHub Pages 自定义工作流官方说明](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)。
+仓库的 `.github/workflows/deploy.yml` 运行源码检查和构建验证；网站发布由 GitHub 自动生成的 **pages build and deployment** 工作流完成。原网站地址为 <https://weiyao-yang.github.io/>。
+
+配置依据：[GitHub Pages 发布来源官方说明](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site)。
 
 ### 使用 Git 提交修改
 
@@ -83,13 +85,13 @@ git commit -m 'Update website'
 git push origin main
 ```
 
-推送到 `main` 后，GitHub Actions 会运行检查、构建并部署 GitHub Pages。可在仓库 **Actions** 页面查看结果，也可以选择部署工作流后点击 **Run workflow** 手动触发。首次部署成功后，在 Pages 设置或工作流结果中查看网站访问地址。
+推送到 `main` 后，GitHub Pages 自动更新网站，同时 **Validate static website** 工作流检查源码。可在仓库 **Actions** 页面查看检查及 **pages build and deployment** 的发布结果。手动运行源码检查不会单独触发网站发布。
 
-如果你使用另一个账号且没有原仓库的写入权限，请先 **Fork** 到自己的账号，再克隆自己的仓库、配置 Pages，并在 Actions 页面按提示启用工作流。之后推送到你自己的 `main` 分支即可部署。
+如果你使用另一个账号且没有原仓库的写入权限，请先 **Fork** 到自己的账号，再克隆自己的仓库，按上述方式配置 Pages，并在 Actions 页面按提示启用工作流。之后推送到你自己的 `main` 分支即可部署。
 
 ### 使用下载的 ZIP 修改
 
-可以在 GitHub 网页中将修改后的文件上传到目标仓库的 `main` 分支并提交，保留原有 `.github/` 工作流和其他源码文件；首次上传整个项目时也要包含这些隐藏文件。提交后由同一工作流自动部署。
+可以在 GitHub 网页中将修改后的文件上传到目标仓库的 `main` 分支并提交，保留原有 `.github/` 工作流、`.nojekyll` 和其他源码文件；首次上传整个项目时也要包含这些隐藏文件。提交后 GitHub Pages 自动发布根目录中的网站。
 
 ZIP 不含 `.git` 历史，解压目录不能直接执行上面的 `git push`。若要改用 Git 提交，请先克隆仓库，再把本地修改复制到克隆目录中提交。
 
