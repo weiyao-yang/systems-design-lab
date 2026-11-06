@@ -2,7 +2,7 @@
 
 蓝橙机械臂互动网站：全屏数据流开场、机械臂线稿绘制、Enter 过渡、标签联动、机械臂精确触达与虚化弹窗。页面以英文为主、中文为辅。
 
-线上网站：[Systems Design Lab](https://weiyao-yang.github.io/systems-design-lab/)。仓库保留完整可编辑源码，可在另一台电脑通过 Git 克隆或下载 ZIP 后继续编辑、预览和部署。
+线上网站：[Systems Design Lab](https://weiyao-yang.github.io/)。仓库保留完整可编辑源码，可在另一台电脑通过 Git 克隆或下载 ZIP 后继续编辑、预览和部署。
 
 首屏直接呈现开场数据界面。数据持续平滑向上滚动约 1.1 秒，模型准备就绪后，约 60 条蓝橙引线从四面八方一次连续汇入，直到沿真实轮廓构成完整机械臂；绘制约持续 4.2 秒，中途不重新发射。每条引线都携带随行的数据标签，标签为无边框、无底框的悬浮文字，字号与明暗分层；结束时引线沿路径平滑收进机械臂。开场标题先绘制橙色制图分格线，约 2.4 秒画完，线框绘制按各段真实长度归一化，避免提前画完；线框结束的同一帧，首批蓝色字母即从实际字形边缘开始可见，不再叠加慢淡入；每个字母分别从左、右、上或下独立展开，起步和速度不按阅读顺序明显错开，形成部分字母已显现约七成、部分刚开始的层次；主标题约用 1.2 秒完成；同一行字母共用贯穿整行的上下横线，分格线严格对齐，交点处的出头长短不一。主标题完整后，标题上方的 Led by Weiyao Yang, Ph.D. 以灰色最后显现；每个字母同样独立选择四个入场方向并错开进度，这一段约 0.6 秒完成，不透明度为 70%，字号为主标题的四分之一，并与 SYSTEMS 的字形左缘对齐。线框、主标题和署名共用同一时钟，整体文字与机械臂都在约 4.2 秒时完成；文字全部显现后再开放 Enter。线条几何在测量时生成并缓存，显现时仍沿用机械臂的共享时钟。点击 Enter 时数据和文字同步淡出，机械臂保留原位。REBOOT 可重新播放。
 
@@ -17,15 +17,15 @@
 安装 Git 后，在终端执行：
 
 ```sh
-git clone https://github.com/weiyao-yang/systems-design-lab.git
-cd systems-design-lab
+git clone https://github.com/weiyao-yang/weiyao-yang.github.io.git
+cd weiyao-yang.github.io
 ```
 
 克隆会保留 Git 历史和发布工作流，之后可以直接提交、推送修改。
 
 ### 方式 B：下载 ZIP
 
-打开 [项目仓库](https://github.com/weiyao-yang/systems-design-lab)，点击 **Code → Download ZIP**，解压整个压缩包。在解压后的项目文件夹中打开终端；该文件夹应包含 `package.json` 和 `index.html`。
+打开 [项目仓库](https://github.com/weiyao-yang/weiyao-yang.github.io)，点击 **Code → Download ZIP**，解压整个压缩包。在解压后的项目文件夹中打开终端；该文件夹应包含 `package.json` 和 `index.html`。
 
 请保留 `.github/`、`.gitignore` 和 `.nojekyll` 等以点开头的文件或文件夹。
 

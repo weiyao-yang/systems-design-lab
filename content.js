@@ -102,6 +102,30 @@ export const panels = [
     </section>
     <section class="people-member-section" aria-labelledby="peopleAlumniTitle">
       <h2 class="people-section-title" id="peopleAlumniTitle"><span lang="en">Alumni</span> <span lang="zh-CN">校友 / 前成员</span></h2>
+      <div class="people-alumni-grid">
+        <article class="alumni-nameplate" aria-labelledby="alumniXuankaiZhang">
+          <header class="alumni-nameplate-heading">
+            <h3 id="alumniXuankaiZhang" lang="en">Xuankai ZHANG</h3>
+            <p lang="zh-CN">张玄凯</p>
+          </header>
+          <p class="alumni-nameplate-degree"><span lang="en">Master's degree</span><span lang="zh-CN">硕士</span></p>
+          <div class="alumni-nameplate-affiliation">
+            <p lang="en">The Chinese University of Hong Kong, Shenzhen</p>
+            <p lang="zh-CN">香港中文大学（深圳）</p>
+          </div>
+        </article>
+        <article class="alumni-nameplate" aria-labelledby="alumniDaweiZhou">
+          <header class="alumni-nameplate-heading">
+            <h3 id="alumniDaweiZhou" lang="en">Dawei ZHOU</h3>
+            <p lang="zh-CN">周大为</p>
+          </header>
+          <p class="alumni-nameplate-degree"><span lang="en">Master's degree</span><span lang="zh-CN">硕士</span></p>
+          <div class="alumni-nameplate-affiliation">
+            <p lang="en">The Chinese University of Hong Kong, Shenzhen</p>
+            <p lang="zh-CN">香港中文大学（深圳）</p>
+          </div>
+        </article>
+      </div>
     </section>`
   },
   {

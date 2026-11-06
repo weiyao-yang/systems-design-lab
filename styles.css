@@ -178,6 +178,17 @@ body.booting:has(#bootDialog.ready) .lab>.scene{z-index:13}
 .people-section-title [lang="zh-CN"]{font:600 21px/1.4 var(--sans);letter-spacing:.06em}
 .people-member-section{margin-top:28px;padding-top:24px;border-top:1px solid #deded6}
 .people-member-section .people-section-title{margin-bottom:0}
+.people-alumni-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;max-width:960px;margin-top:18px}
+.alumni-nameplate{min-width:0;padding:16px 20px 15px;border:1px solid #deded6;border-left:3px solid var(--orange);border-radius:14px;background:#fffdf24d}
+.alumni-nameplate-heading{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 13px}
+.alumni-nameplate-heading h3{margin:0;color:var(--ink);font:800 30px/1.05 var(--display);letter-spacing:.025em}
+.alumni-nameplate-heading p{margin:0;color:#5f6778;font:500 17px/1.4 var(--sans);letter-spacing:.12em}
+.alumni-nameplate-degree{display:flex;align-items:baseline;flex-wrap:wrap;gap:5px 10px;margin:7px 0 11px;color:var(--blue);font:400 13px/1.5 var(--sans)}
+.alumni-nameplate-degree [lang="zh-CN"]{color:#858792;font-size:12px;letter-spacing:.06em}
+.alumni-nameplate-affiliation{padding-top:10px;border-top:1px solid #deded6}
+.alumni-nameplate-affiliation p{margin:0;color:#657084;font:400 13px/1.6 var(--sans);overflow-wrap:break-word}
+.alumni-nameplate-affiliation p[lang="zh-CN"]{margin-top:3px;color:#858792;font-size:12px;letter-spacing:.025em}
+@media(max-width:800px){.people-alumni-grid{grid-template-columns:minmax(0,1fr);max-width:480px;margin-top:16px}.alumni-nameplate{padding:16px 18px 15px}.alumni-nameplate-heading h3{font-size:29px}.alumni-nameplate-heading p{font-size:17px}.alumni-nameplate-heading{gap:4px 12px}}
 @media(max-width:800px){.panel-content .people-section-title{font-size:30px;gap:6px 12px;margin-bottom:20px}.people-section-title [lang="zh-CN"]{font-size:18px}.people-member-section{margin-top:24px;padding-top:20px}.people-member-section .people-section-title{margin-bottom:0}}
 .people-profile{display:grid;grid-template-columns:clamp(123.2px,11.76vw,190.4px) minmax(0,1fr);align-items:start;column-gap:clamp(28px,3vw,58px);row-gap:16px}
 .people-portrait{min-width:0;margin:0}
