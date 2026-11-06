@@ -100,15 +100,26 @@ export const panels = [
     <section class="people-member-section" aria-labelledby="peopleCollaboratorsTitle">
       <h2 class="people-section-title" id="peopleCollaboratorsTitle"><span lang="en">Research Collaborators</span> <span lang="zh-CN">合作学者</span></h2>
       <div class="people-alumni-grid">
-        <article class="alumni-nameplate" aria-labelledby="collaboratorWeixuanChen">
+        <article class="alumni-nameplate" aria-labelledby="collaboratorHaoranZhang">
           <header class="alumni-nameplate-heading">
-            <h3 id="collaboratorWeixuanChen" lang="en">Weixuan CHEN</h3>
-            <p lang="zh-CN">陈伟旋</p>
+            <h3 id="collaboratorHaoranZhang" lang="en">Haoran ZHANG</h3>
+            <p lang="zh-CN">张浩然</p>
           </header>
           <p class="alumni-nameplate-degree"><span lang="en">Assistant Professor</span><span lang="zh-CN">助理教授</span></p>
           <div class="alumni-nameplate-affiliation">
-            <p lang="en">Jinan University</p>
-            <p lang="zh-CN">暨南大学</p>
+            <p lang="en">Peking University</p>
+            <p lang="zh-CN">北京大学</p>
+          </div>
+        </article>
+        <article class="alumni-nameplate" aria-labelledby="collaboratorJianYuan">
+          <header class="alumni-nameplate-heading">
+            <h3 id="collaboratorJianYuan" lang="en">Jian YUAN</h3>
+            <p lang="zh-CN">袁见</p>
+          </header>
+          <p class="alumni-nameplate-degree"><span lang="en">Postdoctoral Researcher</span><span lang="zh-CN">博士后</span></p>
+          <div class="alumni-nameplate-affiliation">
+            <p lang="en">Peking University</p>
+            <p lang="zh-CN">北京大学</p>
           </div>
         </article>
         <article class="alumni-nameplate" aria-labelledby="collaboratorQianXu">
@@ -132,26 +143,15 @@ export const panels = [
             <p lang="zh-CN">深圳大学</p>
           </div>
         </article>
-        <article class="alumni-nameplate" aria-labelledby="collaboratorJianYuan">
+        <article class="alumni-nameplate" aria-labelledby="collaboratorWeixuanChen">
           <header class="alumni-nameplate-heading">
-            <h3 id="collaboratorJianYuan" lang="en">Jian YUAN</h3>
-            <p lang="zh-CN">袁见</p>
-          </header>
-          <p class="alumni-nameplate-degree"><span lang="en">Postdoctoral Researcher</span><span lang="zh-CN">博士后</span></p>
-          <div class="alumni-nameplate-affiliation">
-            <p lang="en">Peking University</p>
-            <p lang="zh-CN">北京大学</p>
-          </div>
-        </article>
-        <article class="alumni-nameplate" aria-labelledby="collaboratorHaoranZhang">
-          <header class="alumni-nameplate-heading">
-            <h3 id="collaboratorHaoranZhang" lang="en">Haoran ZHANG</h3>
-            <p lang="zh-CN">张浩然</p>
+            <h3 id="collaboratorWeixuanChen" lang="en">Weixuan CHEN</h3>
+            <p lang="zh-CN">陈伟旋</p>
           </header>
           <p class="alumni-nameplate-degree"><span lang="en">Assistant Professor</span><span lang="zh-CN">助理教授</span></p>
           <div class="alumni-nameplate-affiliation">
-            <p lang="en">Peking University</p>
-            <p lang="zh-CN">北京大学</p>
+            <p lang="en">Jinan University</p>
+            <p lang="zh-CN">暨南大学</p>
           </div>
         </article>
       </div>
@@ -159,10 +159,10 @@ export const panels = [
     <section class="people-member-section" aria-labelledby="peopleAlumniTitle">
       <h2 class="people-section-title" id="peopleAlumniTitle"><span lang="en">Alumni</span> <span lang="zh-CN">校友 / 前成员</span></h2>
       <div class="people-alumni-grid">
-        <article class="alumni-nameplate" aria-labelledby="alumniXuankaiZhang">
+        <article class="alumni-nameplate" aria-labelledby="alumniDaweiZhou">
           <header class="alumni-nameplate-heading">
-            <h3 id="alumniXuankaiZhang" lang="en">Xuankai ZHANG</h3>
-            <p lang="zh-CN">张玄凯</p>
+            <h3 id="alumniDaweiZhou" lang="en">Dawei ZHOU</h3>
+            <p lang="zh-CN">周大为</p>
           </header>
           <p class="alumni-nameplate-degree"><span lang="en">Master's degree</span><span lang="zh-CN">硕士</span></p>
           <div class="alumni-nameplate-affiliation">
@@ -170,10 +170,10 @@ export const panels = [
             <p lang="zh-CN">香港中文大学（深圳）</p>
           </div>
         </article>
-        <article class="alumni-nameplate" aria-labelledby="alumniDaweiZhou">
+        <article class="alumni-nameplate" aria-labelledby="alumniXuankaiZhang">
           <header class="alumni-nameplate-heading">
-            <h3 id="alumniDaweiZhou" lang="en">Dawei ZHOU</h3>
-            <p lang="zh-CN">周大为</p>
+            <h3 id="alumniXuankaiZhang" lang="en">Xuankai ZHANG</h3>
+            <p lang="zh-CN">张玄凯</p>
           </header>
           <p class="alumni-nameplate-degree"><span lang="en">Master's degree</span><span lang="zh-CN">硕士</span></p>
           <div class="alumni-nameplate-affiliation">
