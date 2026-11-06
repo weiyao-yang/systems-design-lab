@@ -65,7 +65,9 @@ export const panels = [
     id: 'about',
     eyebrow: '04 / PEOPLE',
     layout: 'people',
-    body: `<div class="people-profile">
+    body: `<section class="people-director" aria-labelledby="peopleDirectorTitle">
+      <h2 class="people-section-title" id="peopleDirectorTitle"><span lang="en">Lab Director</span> <span lang="zh-CN">实验室负责人</span></h2>
+      <div class="people-profile">
       <aside class="people-portrait">
         <img class="people-photo" src="assets/weiyao-yang.jpg" width="770" height="998" alt="杨玮尧博士 / Dr. Weiyao Yang" decoding="async">
         <nav class="people-links" aria-label="Weiyao Yang — contact and academic profiles">
@@ -75,7 +77,7 @@ export const panels = [
         </nav>
       </aside>
       <div class="people-identity">
-        <header class="people-heading"><h2 id="panelTitle" lang="en">Weiyao YANG</h2><p class="people-name-zh" lang="zh-CN">杨玮尧</p></header>
+        <header class="people-heading"><h3 class="people-name-en" id="panelTitle" lang="en">Weiyao YANG</h3><p class="people-name-zh" lang="zh-CN">杨玮尧</p></header>
         <div class="people-affiliations">
           <p><span lang="en">Postdoctoral Researcher</span> <span lang="zh-CN">博士后研究员</span></p>
           <p><span lang="en">Peking University</span> <span lang="zh-CN">北京大学</span></p>
@@ -95,6 +97,16 @@ export const panels = [
         <li><span class="people-experience-date">2019/02 — 2021/07</span>, <span lang="en">Master’s degree in Landscape Architecture – Land Landscape Heritage, Politecnico di Milano, Italy.</span> <span class="people-experience-zh" lang="zh-CN">意大利米兰理工大学，风景园林与陆地景观遗产，硕士。</span></li>
         <li><span class="people-experience-date">2013/09 — 2017/07</span>, <span lang="en">Bachelor’s degree in Environmental Design, Shenyang Jianzhu University.</span> <span class="people-experience-zh" lang="zh-CN">沈阳建筑大学，环境设计，学士。</span></li>
       </ul>
+    </section>
+    </section>
+    <section class="people-member-section" aria-labelledby="peopleCoreTitle">
+      <h2 class="people-section-title" id="peopleCoreTitle"><span lang="en">Core Members</span> <span lang="zh-CN">核心成员</span></h2>
+    </section>
+    <section class="people-member-section" aria-labelledby="peopleCollaboratorsTitle">
+      <h2 class="people-section-title" id="peopleCollaboratorsTitle"><span lang="en">Research Collaborators</span> <span lang="zh-CN">合作学者</span></h2>
+    </section>
+    <section class="people-member-section" aria-labelledby="peopleAlumniTitle">
+      <h2 class="people-section-title" id="peopleAlumniTitle"><span lang="en">Alumni</span> <span lang="zh-CN">校友 / 前成员</span></h2>
     </section>`
   },
   {

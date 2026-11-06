@@ -1,4 +1,4 @@
-import { panels } from './content.js?v=68';
+import { panels } from './content.js?v=69';
 import { createModalInteraction } from './modal-interaction.js?v=53';
 import { createTitleGuides, TITLE_SEQUENCE_MS } from './intro-title-guides.js?v=63';
 

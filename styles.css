@@ -176,6 +176,11 @@ body.booting:has(#bootDialog.ready) .lab>.scene{z-index:13}
 @media(max-width:700px){.publication-legend{font-size:11px}.publication-year h3{font-size:21px}.publication-year ol{padding-left:23px}.publication-item{padding-left:4px;font-size:14px}.publication-doi{font-size:10px}}
 
 /* The People panel keeps the shared window and an English-then-Chinese biography. */
+.panel-content .people-section-title{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 16px;margin:0 0 24px;color:var(--blue);font:800 36px/1.1 var(--display);letter-spacing:.025em}
+.people-section-title [lang="zh-CN"]{font:600 21px/1.4 var(--sans);letter-spacing:.06em}
+.people-member-section{margin-top:28px;padding-top:24px;border-top:1px solid #deded6}
+.people-member-section .people-section-title{margin-bottom:0}
+@media(max-width:800px){.panel-content .people-section-title{font-size:30px;gap:6px 12px;margin-bottom:20px}.people-section-title [lang="zh-CN"]{font-size:18px}.people-member-section{margin-top:24px;padding-top:20px}.people-member-section .people-section-title{margin-bottom:0}}
 .people-profile{display:grid;grid-template-columns:clamp(123.2px,11.76vw,190.4px) minmax(0,1fr);align-items:start;column-gap:clamp(28px,3vw,58px);row-gap:16px}
 .people-portrait{min-width:0;margin:0}
 .people-photo{display:block;width:100%;height:auto;aspect-ratio:719/786;object-fit:cover;object-position:50% 20%;border-radius:14px;background:#e5e4df;filter:contrast(.95) brightness(1.015) saturate(.98) blur(.2px)}
@@ -185,7 +190,7 @@ body.booting:has(#bootDialog.ready) .lab>.scene{z-index:13}
 .people-links svg{display:block;width:21px;height:21px;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 .people-identity{min-width:0;overflow-wrap:break-word}
 .people-heading{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 18px;margin-bottom:20px}
-.people-identity h2{margin:0;font-size:clamp(34px,3.5vw,58px)}
+.people-identity .people-name-en{margin:0;color:var(--ink);font:800 clamp(34px,3.5vw,58px)/1 var(--display);letter-spacing:.025em}
 .people-name-zh{margin:0;color:#5f6778;font-size:28px;font-weight:500;line-height:1.4;letter-spacing:.15em}
 .people-affiliations{display:grid;grid-template-columns:max-content minmax(0,1fr);align-items:baseline;gap:4px 14px;color:#657084;font:400 19px/1.7 var(--sans)}
 .people-affiliations p{display:contents;margin:0}
@@ -200,9 +205,9 @@ body.booting:has(#bootDialog.ready) .lab>.scene{z-index:13}
 .people-experience-list li{padding-left:4px;margin:0 0 12px}.people-experience-list li:last-child{margin-bottom:0}.people-experience-list li::marker{color:var(--orange)}
 .people-experience-date{white-space:nowrap;color:var(--blue);font-variant-numeric:tabular-nums}
 .people-experience-zh{color:#858792;font-size:15px}
-@media(max-width:800px){.people-profile{grid-template-columns:minmax(0,1fr);gap:20px}.people-portrait{width:min(56%,156.8px)}.people-identity h2{font-size:36px}.people-heading{gap:8px 14px;margin-bottom:16px}.people-name-zh{font-size:24px}.people-affiliations{display:block;font-size:17px}.people-affiliations p{display:block;margin:0 0 4px}.people-affiliations p:last-child{margin-bottom:0}.people-affiliations [lang="zh-CN"]{font-size:16px;margin-left:8px}.people-biography p{font-size:14px}.people-biography p[lang="zh-CN"]{font-size:14px}.people-experience{margin-top:24px;padding-top:20px}.people-experience h3{font-size:21px}.people-experience h3 span{margin-left:8px;font-size:14px}.people-experience-list{font-size:15px}.people-experience-zh{font-size:14px}}
+@media(max-width:800px){.people-profile{grid-template-columns:minmax(0,1fr);gap:20px}.people-portrait{width:min(56%,156.8px)}.people-identity .people-name-en{font-size:36px}.people-heading{gap:8px 14px;margin-bottom:16px}.people-name-zh{font-size:24px}.people-affiliations{display:block;font-size:17px}.people-affiliations p{display:block;margin:0 0 4px}.people-affiliations p:last-child{margin-bottom:0}.people-affiliations [lang="zh-CN"]{font-size:16px;margin-left:8px}.people-biography p{font-size:14px}.people-biography p[lang="zh-CN"]{font-size:14px}.people-experience{margin-top:24px;padding-top:20px}.people-experience h3{font-size:21px}.people-experience h3 span{margin-left:8px;font-size:14px}.people-experience-list{font-size:15px}.people-experience-zh{font-size:14px}}
 
-@media(max-width:420px){.people-heading{flex-wrap:nowrap;gap:10px}.people-identity h2{font-size:clamp(22px,7vw,29px);white-space:nowrap}.people-name-zh{font-size:clamp(20px,5.5vw,23px);white-space:nowrap}}
+@media(max-width:420px){.people-heading{flex-wrap:nowrap;gap:10px}.people-identity .people-name-en{font-size:clamp(22px,7vw,29px);white-space:nowrap}.people-name-zh{font-size:clamp(20px,5.5vw,23px);white-space:nowrap}}
 
 /* Brand ink alignment; navigation glyphs scale without resizing their layout. */
 .brand-cn{font-size:8.8px}
