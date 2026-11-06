@@ -46,15 +46,39 @@ export const panels = [
   },
   {
     id: 'about',
-    eyebrow: '04 / BEHIND THE LAB',
-    kicker: 'A SPACE FOR POSSIBILITIES',
-    title: 'ABOUT THE LAB',
-    titleZh: '关于实验室',
-    intro: 'Systems Design Lab — a space for systems, objects, and interaction.',
-    introZh: '系统设计实验室 · 一个关于系统、物体与交互的设计空间。',
-    body: `<div class="about-big">HUMAN IDEAS.<br>MECHANICAL <span>CURIOSITY.</span></div>
-      <div class="about-copy"><p>Good design begins with understanding relationships — and staying curious about what comes next.<small class="zh-copy">好设计来自对关系的理解，也来自对未知的好奇。</small></p><p>Meet SDL—01, your exploration partner. It turns toward your questions, reaches out, and connects scattered ideas. Every label is an entrance. Every click starts another experiment.<small class="zh-copy">SDL—01 是这里的探索伙伴。它会转向你的问题，伸出机械臂，把分散的想法连接起来。每个标签都是入口，每一次点击都是新的实验。</small></p></div>
-      <div class="about-tags"><span>SYSTEMS THINKING</span><span>INTERACTION DESIGN</span><span>CREATIVE TECHNOLOGY</span></div>`
+    eyebrow: '04 / PEOPLE',
+    layout: 'people',
+    body: `<div class="people-profile">
+      <aside class="people-portrait">
+        <img class="people-photo" src="assets/weiyao-yang.jpg" width="770" height="998" alt="杨玮尧博士 / Dr. Weiyao Yang" decoding="async">
+      </aside>
+      <div class="people-identity">
+        <header class="people-heading"><h2 id="panelTitle" lang="en">Weiyao YANG</h2><p class="people-name-zh" lang="zh-CN">杨玮尧</p></header>
+        <div class="people-affiliations">
+          <p><span lang="en">Postdoctoral Researcher</span> <span lang="zh-CN">博士后研究员</span></p>
+          <p><span lang="en">Peking University</span> <span lang="zh-CN">北京大学</span></p>
+          <p><span lang="en">School of Urban Planning and Design</span> <span lang="zh-CN">城市规划与设计学院</span></p>
+        </div>
+        <nav class="people-links" aria-label="Weiyao Yang — contact and academic profiles">
+          <a href="mailto:weiyao.yang@pku.edu.cn" aria-label="Email Weiyao Yang: weiyao.yang@pku.edu.cn" title="weiyao.yang@pku.edu.cn"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 6.6 4.7a2.4 2.4 0 0 0 2.8 0L20 7"/></svg></a>
+          <a href="https://orcid.org/0009-0002-3872-4736" target="_blank" rel="noopener noreferrer" aria-label="Weiyao Yang on ORCID (opens in a new tab)" title="ORCID"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="7.7" cy="8" r=".9" fill="currentColor" stroke="none"/><path d="M7.7 10.5v6M11 7.5h2a4.5 4.5 0 0 1 0 9h-2z"/></svg></a>
+          <a href="https://scholar.google.com/citations?user=42VUgP0AAAAJ&amp;hl=en" target="_blank" rel="noopener noreferrer" aria-label="Weiyao Yang on Google Scholar (opens in a new tab)" title="Google Scholar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.5 8.5 12 2l10.5 6.5L12 15z" fill="currentColor" stroke="none"/><path d="M6 12v4.5c0 2.2 2.7 4 6 4s6-1.8 6-4V12M22.5 8.5V16" fill="none"/></svg></a>
+        </nav>
+      </div>
+      <article class="people-biography" aria-labelledby="panelTitle">
+          <p lang="en">Dr. Weiyao Yang is a Postdoctoral Researcher at Peking University Shenzhen Graduate School and has been selected for the Guangdong Provincial Overseas Postdoctoral Talent Support Program; he also serves as Director of the Executive Office of the Guangdong Provincial Key Laboratory of Risk Perception and Sustainable Governance in Energy Transition. He previously served as a Senior Researcher at the Keio Research Institute at SFC, Keio University, Japan. He received his Ph.D. from Keio University’s Graduate School of Media and Governance. He has published over 20 research articles in internationally recognized journals indexed in the Web of Science Core Collection. He serves as principal investigator on projects under the Young Scientists Fund (Category C) of the National Natural Science Foundation of China and the Guangdong Province Philosophy and Social Sciences Planning Youth Project. He has completed over 80 peer reviews for more than 40 SCIE- and SSCI-indexed journals. His research focuses on data mining and AI-driven design. He explores the complexity and evolutionary dynamics of coupled human–nature–society systems and is committed to developing playful and engaging human–computer interaction systems. Guided by a “Paper-to-Product” (P2P) philosophy, he works to translate research into practical applications.</p>
+          <p lang="zh-CN">杨玮尧博士，现为北京大学深圳研究生院博士后研究员，入选广东省海外博士后人才支持项目，并担任广东省能源转型风险感知与可持续治理重点实验室执行办公室主任。曾任日本庆应义塾大学SFC研究所高级研究员，博士毕业于日本庆应义塾大学政策与媒体研究科。累计发表SCI/SSCI期刊论文20余篇，主持国家自然科学基金青年科学基金项目（C类）、广东省哲学社会科学规划青年项目。已为40余本SCI/SSCI期刊完成80余次同行评审。研究兴趣聚焦数据挖掘与AI驱动设计，探索“人—自然—社会”耦合系统的复杂性与演化规律，并致力于开发兼具趣味性和参与感的人机交互系统。秉持“从论文到产品”（Paper-to-Product，P2P）理念，推动研究成果落地应用。</p>
+      </article>
+    </div>
+    <section class="people-experience" aria-labelledby="peopleExperienceTitle">
+      <h3 id="peopleExperienceTitle" lang="en">Education &amp; Work Experience <span lang="zh-CN">教育与工作经历</span></h3>
+      <ul class="people-experience-list">
+        <li><span class="people-experience-date">2025/07 — present</span>, <span lang="en">Postdoctoral Researcher, Peking University Shenzhen Graduate School.</span> <span class="people-experience-zh" lang="zh-CN">北京大学深圳研究生院，博士后研究员。</span></li>
+        <li><span class="people-experience-date">2021/09 — 2025/03</span>, <span lang="en">Ph.D., Graduate School of Media and Governance, Keio University, Japan.</span> <span class="people-experience-zh" lang="zh-CN">日本庆应义塾大学，政策与媒体研究科，博士。</span></li>
+        <li><span class="people-experience-date">2019/02 — 2021/07</span>, <span lang="en">Master’s degree in Landscape Architecture – Land Landscape Heritage, Politecnico di Milano, Italy.</span> <span class="people-experience-zh" lang="zh-CN">意大利米兰理工大学，风景园林与陆地景观遗产，硕士。</span></li>
+        <li><span class="people-experience-date">2013/09 — 2017/07</span>, <span lang="en">Bachelor’s degree in Environmental Design, Shenyang Jianzhu University.</span> <span class="people-experience-zh" lang="zh-CN">沈阳建筑大学，环境设计，学士。</span></li>
+      </ul>
+    </section>`
   },
   {
     id: 'journal',

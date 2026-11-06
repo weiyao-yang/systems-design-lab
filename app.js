@@ -1,4 +1,4 @@
-import { panels } from './content.js?v=5';
+import { panels } from './content.js?v=65';
 import { createModalInteraction } from './modal-interaction.js?v=53';
 import { createTitleGuides, TITLE_SEQUENCE_MS } from './intro-title-guides.js?v=63';
 
@@ -55,7 +55,7 @@ function showPanel(id) {
   activePanel = index;
   const p = panels[index];
   $('#panelEyebrow').textContent = p.eyebrow;
-  $('#panelContent').innerHTML = `<p class="panel-kicker">${p.kicker}</p><h2 id="panelTitle">${p.title}</h2><p class="panel-title-zh" lang="zh-CN">${p.titleZh}</p><p class="panel-intro">${p.intro}<small class="zh-copy" lang="zh-CN">${p.introZh}</small></p>${p.body}`;
+  $('#panelContent').innerHTML = p.layout === 'people' ? p.body : `<p class="panel-kicker">${p.kicker}</p><h2 id="panelTitle">${p.title}</h2><p class="panel-title-zh" lang="zh-CN">${p.titleZh}</p><p class="panel-intro">${p.intro}<small class="zh-copy" lang="zh-CN">${p.introZh}</small></p>${p.body}`;
   document.body.classList.add('modal-open'); lab.inert = true;
   if (!dialog.open) dialog.showModal();
   modalInteraction.open();

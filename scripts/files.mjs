@@ -3,6 +3,7 @@
 export const websiteFiles = [
   'index.html',
   'assets/tic-tac-toe.svg',
+  'assets/weiyao-yang.jpg',
   'styles.css',
   'app.js',
   'content.js',
