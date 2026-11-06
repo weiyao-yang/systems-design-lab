@@ -35,15 +35,10 @@ export const panels = [
   {
     id: 'publications',
     eyebrow: '03 / PUBLICATIONS',
-    kicker: 'PUBLISHED RESEARCH',
-    title: 'PUBLICATIONS',
-    titleZh: '学术出版物',
-    intro: 'Selected journal articles as first or corresponding author.',
-    introZh: '已出版的第一作者或通讯作者期刊论文，共 7 篇。',
+    layout: 'publications',
     body: `<div class="publications-list">
-      <p class="publication-legend"><strong>Yang, W.</strong> = Weiyao Yang / 杨玮尧 · <sup>*</sup> Corresponding author / 通讯作者</p>
       <section class="publication-year" aria-labelledby="publications2025">
-        <h3 id="publications2025">2025</h3>
+        <h2 id="publications2025">2025</h2>
         <ol>
           <li class="publication-item"><a href="https://doi.org/10.1177/23998083241258240" target="_blank" rel="noopener noreferrer"><strong>Yang, W.<sup>*</sup></strong>, Yan, W., Chen, L., &amp; Li, H. (2025). From city center to suburbs: Developing a timeline-based TOD assessment model to explore the dynamic changes in station areas of Tokyo metropolitan area. <em>Environment and Planning B: Urban Analytics and City Science</em>, 52(1), 214–230.<span class="publication-doi">DOI: 10.1177/23998083241258240 <span aria-hidden="true">↗</span></span></a></li>
           <li class="publication-item"><a href="https://doi.org/10.1016/j.jenvman.2025.125067" target="_blank" rel="noopener noreferrer"><strong>Yang, W.</strong>, Tian, S., Zhai, M.<sup>*</sup>, Li, F., Huo, D., Wang, S., Liu, S., &amp; Liu, Z. (2025). Can sustainable policies drive TOD effectively? Insights from multi-scenario simulations. <em>Journal of Environmental Management</em>, 380, 125067.<span class="publication-doi">DOI: 10.1016/j.jenvman.2025.125067 <span aria-hidden="true">↗</span></span></a></li>
@@ -52,7 +47,7 @@ export const panels = [
         </ol>
       </section>
       <section class="publication-year" aria-labelledby="publications2024">
-        <h3 id="publications2024">2024</h3>
+        <h2 id="publications2024">2024</h2>
         <ol start="5">
           <li class="publication-item"><a href="https://doi.org/10.1177/23998083231202880" target="_blank" rel="noopener noreferrer"><strong>Yang, W.<sup>*</sup></strong>, Yan, W., Chen, L., Wei, H., &amp; Gan, S. (2024). Developing a TOD assessment model based on node–place–ecology for suburban areas of metropolitan cities: A case in Odawara. <em>Environment and Planning B: Urban Analytics and City Science</em>, 51(4), 839–853.<span class="publication-doi">DOI: 10.1177/23998083231202880 <span aria-hidden="true">↗</span></span></a></li>
           <li class="publication-item"><a href="https://doi.org/10.1016/j.trd.2024.104456" target="_blank" rel="noopener noreferrer"><strong>Yang, W.</strong>, Xu, Q.<sup>*</sup>, Yi, S., Shankar, R., &amp; Chen, T. (2024). Enhancing transit-oriented development sustainability through the integrated node-place-ecology (NPE) model. <em>Transportation Research Part D: Transport and Environment</em>, 136, 104456.<span class="publication-doi">DOI: 10.1016/j.trd.2024.104456 <span aria-hidden="true">↗</span></span></a></li>
@@ -95,7 +90,7 @@ export const panels = [
         <li><span class="people-experience-date">2025/07 — present</span>, <span lang="en">Postdoctoral Researcher, Peking University Shenzhen Graduate School.</span> <span class="people-experience-zh" lang="zh-CN">北京大学深圳研究生院，博士后研究员。</span></li>
         <li><span class="people-experience-date">2021/09 — 2025/03</span>, <span lang="en">Ph.D., Graduate School of Media and Governance, Keio University, Japan.</span> <span class="people-experience-zh" lang="zh-CN">日本庆应义塾大学，政策与媒体研究科，博士。</span></li>
         <li><span class="people-experience-date">2019/02 — 2021/07</span>, <span lang="en">Master’s degree in Landscape Architecture – Land Landscape Heritage, Politecnico di Milano, Italy.</span> <span class="people-experience-zh" lang="zh-CN">意大利米兰理工大学，风景园林与陆地景观遗产，硕士。</span></li>
-        <li><span class="people-experience-date">2013/09 — 2017/07</span>, <span lang="en">Bachelor’s degree in Environmental Design, Shenyang Jianzhu University.</span> <span class="people-experience-zh" lang="zh-CN">沈阳建筑大学，环境设计，学士。</span></li>
+        <li><span class="people-experience-date">2013/09 — 2017/07</span>, <span lang="en">Bachelor’s degree in Environmental Design, Shenyang Jianzhu University, China.</span> <span class="people-experience-zh" lang="zh-CN">沈阳建筑大学，环境设计，学士。</span></li>
       </ul>
     </section>
     </section>
